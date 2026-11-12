@@ -1,0 +1,34 @@
+Package: forexviz
+Title: Interactive Visualizations for the Trading System
+Version: 0.0.0.9000
+Authors@R: 
+    person("Lekgoa", "Komane", , "lionel.komane@gmail.com", role = c("aut", "cre"))
+Description: A Shiny application for interactive exploration of price data
+    and engine signals from the trading system. Built with 'echarts4r' for
+    rich financial charts, it consumes data produced by the companion
+    'forexdatasets' and 'forexengine' packages, typically orchestrated by
+    a 'targets' pipeline.
+License: MIT + file LICENSE
+Imports: 
+    bslib,
+    config,
+    data.table,
+    DBI,
+    echarts4r,
+    forexdatasets,
+    golem,
+    htmlwidgets,
+    logger,
+    lubridate,
+    RSQLite,
+    shiny,
+    shinyjs,
+    shinyWidgets
+Suggests: 
+    testthat (>= 3.0.0)
+Config/roxygen2/version: 8.1.1
+Config/testthat/edition: 3
+Encoding: UTF-8
+LazyData: true
+Depends: 
+    R (>= 4.1.0)
