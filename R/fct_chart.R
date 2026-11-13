@@ -80,7 +80,7 @@ build_candle_option <- function(dt, title, decimals, zoom, show_time = FALSE) {
       borderWidth = 0,
       padding = 0,
       extraCssText = "box-shadow: none;",
-      alwaysShowContent = TRUE,
+      alwaysShowContent = FALSE,
       transitionDuration = 0,
       textStyle = list(color = cols$text, fontSize = 14),
       formatter = candle_tooltip_js(decimals, show_time)

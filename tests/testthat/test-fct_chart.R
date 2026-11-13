@@ -188,3 +188,8 @@ test_that("title is centred and sits above the readout, above the chart", {
   expect_true(opt$tooltip$position[2] < opt$grid$top)
   expect_equal(opt$grid$left, chart_layout$grid_left)
 })
+
+test_that("the hover readout hides when the mouse leaves the chart", {
+  tip <- build_candle_option(one_candle(), "T", 5L, full_zoom)$tooltip
+  expect_false(isTRUE(tip$alwaysShowContent))
+})

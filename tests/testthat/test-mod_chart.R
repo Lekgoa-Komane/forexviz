@@ -132,3 +132,36 @@ test_that("a ticker from another asset class is not written in the notebook", {
     expect_null(last_ticker[["Commodity_Futures"]])
   })
 })
+
+test_that("overlay_switch keeps the ids the server and shinyjs rely on", {
+  ns <- shiny::NS("t")
+  html <- as.character(
+    overlay_switch(
+      ns,
+      "show_kill",
+      "Kill Zone",
+      "kill_child_ui",
+      wrapper_id = ns("kill_col")
+    )
+  )
+  expect_match(html, "t-show_kill")
+  expect_match(html, "t-kill_child_ui")
+  expect_match(html, "t-kill_col")
+  expect_match(html, "overlay-item")
+})
+
+test_that("mod_chart_ui has all seven overlay switches in one row", {
+  html <- as.character(mod_chart_ui("t"))
+  expect_match(html, "overlay-switches")
+  for (id in c(
+    "show_swing",
+    "show_fvg",
+    "show_ob",
+    "show_bos_choch",
+    "show_kill",
+    "show_rw_weekly",
+    "show_rw_daily"
+  )) {
+    expect_match(html, paste0("t-", id))
+  }
+})

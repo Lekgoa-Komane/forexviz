@@ -1,3 +1,30 @@
+#' Width (pixels) of the label part of every overlay switch.
+#' @noRd
+overlay_label_width <- 60
+
+#' One overlay switch, with its sub-options underneath
+#'
+#' @param ns The module's namespace function.
+#' @param id Input id of the switch, such as "show_swing".
+#' @param label Text on the switch.
+#' @param child_ui_id Id of the output that holds the sub-options.
+#' @param wrapper_id Optional id for the wrapper (shinyjs can hide it).
+#' @noRd
+overlay_switch <- function(ns, id, label, child_ui_id, wrapper_id = NULL) {
+  div(
+    id = wrapper_id,
+    class = "overlay-item",
+    switchInput(
+      inputId = ns(id),
+      label = label,
+      value = FALSE,
+      width = "100%",
+      labelWidth = overlay_label_width
+    ),
+    uiOutput(ns(child_ui_id))
+  )
+}
+
 #' price_chart UI Function
 #'
 #' @description A shiny Module.
@@ -10,129 +37,21 @@
 #' @importFrom shiny tags div br
 #' @importFrom shinyWidgets switchInput
 #' @importFrom echarts4r echarts4rOutput
-# mod_chart_ui <- function(id) {
-#   ns <- NS(id)
-#   tagList(
-#     # --- Top controls: ticker, timeframe, date range -----------------------
-#     fluidRow(
-#       column(3, selectInput(ns("asset_class"), "Asset Class", choices = NULL)),
-#       column(2, selectInput(ns("ticker"), "Ticker", choices = NULL)),
-#       column(
-#         2,
-#         selectInput(
-#           ns("timeframe"),
-#           "Timeframe",
-#           choices = all_timeframes,
-#           selected = "weekly"
-#         )
-#       ),
-#       column(
-#         3,
-#         dateRangeInput(
-#           ns("date_range"),
-#           "Date Range",
-#           start = Sys.Date() - 90,
-#           end = Sys.Date()
-#         )
-#       )
-#     ),
-#     br(),
-#     # --- Row 1: standard SMC overlays (Swing/FVG/OB/BOS-CHoCH/Kill) --------
-#     fluidRow(
-#       column(
-#         1,
-#         switchInput(
-#           ns("show_swing"),
-#           "Swing Points",
-#           value = FALSE,
-#           width = "100%",
-#           labelWidth = 60
-#         ),
-#         uiOutput(ns("swing_child_ui"))
-#       ),
-#       column(
-#         1,
-#         switchInput(
-#           ns("show_fvg"),
-#           "FVG",
-#           value = FALSE,
-#           width = "100%",
-#           labelWidth = 60
-#         ),
-#         uiOutput(ns("fvg_child_ui"))
-#       ),
-#       column(
-#         1,
-#         switchInput(
-#           ns("show_ob"),
-#           "OB",
-#           value = FALSE,
-#           width = "100%",
-#           labelWidth = 60
-#         ),
-#         uiOutput(ns("ob_child_ui"))
-#       ),
-#       column(
-#         1,
-#         switchInput(
-#           ns("show_bos_choch"),
-#           "BOS CHoCH",
-#           value = FALSE,
-#           width = "100%",
-#           labelWidth = 60
-#         ),
-#         uiOutput(ns("bos_choch_child_ui"))
-#       ),
-#       column(
-#         1,
-#         div(
-#           id = ns("kill_col"),
-#           switchInput(
-#             ns("show_kill"),
-#             "Kill Zone",
-#             value = FALSE,
-#             width = "100%",
-#             labelWidth = 60
-#           ),
-#           uiOutput(ns("kill_child_ui"))
-#         )
-#       ),
-#       column(
-#         1,
-#         switchInput(
-#           ns("show_rw_weekly"),
-#           "RW Weekly",
-#           value = FALSE,
-#           width = "100%",
-#           labelWidth = 60
-#         ),
-#         uiOutput(ns("rw_weekly_child_ui"))
-#       ),
-#       column(
-#         1,
-#         switchInput(
-#           ns("show_rw_daily"),
-#           "RW Daily",
-#           value = FALSE,
-#           width = "100%",
-#           labelWidth = 60
-#         ),
-#         uiOutput(ns("rw_daily_child_ui"))
-#       )
-#     ),
-#     br(),
-#     # --- Chart output ------------------------------------------------------
-#     fluidRow(column(12, echarts4rOutput(ns("chart"), height = "600px")))
-#   )
-# }
-
 mod_chart_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    # --- Custom CSS to stop switch text from wrapping ---
+    # --- Style for the overlay switches (only touches this row) ------------
     tags$style(HTML(
       "
-      .bootstrap-switch-label {
+      .overlay-switches {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: flex-start;
+        margin-bottom: 10px;
+      }
+      .overlay-item { min-width: 120px; }
+      .overlay-item .bootstrap-switch-label {
         white-space: nowrap !important;
         text-overflow: ellipsis;
         overflow: hidden;
@@ -165,90 +84,22 @@ mod_chart_ui <- function(id) {
     ),
     br(),
 
-    # --- Row 1: standard SMC overlays (Flexbox layout) --------------------
-    tags$div(
-      style = "display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-start; margin-bottom: 20px;",
-
-      tags$div(
-        style = "min-width: 120px;",
-        switchInput(
-          ns("show_swing"),
-          "Swing Points",
-          value = FALSE,
-          width = "100%",
-          labelWidth = 60
-        ),
-        uiOutput(ns("swing_child_ui"))
+    # --- Overlay switches: one row, same size, wraps when narrow -----------
+    div(
+      class = "overlay-switches",
+      overlay_switch(ns, "show_swing", "Swing Points", "swing_child_ui"),
+      overlay_switch(ns, "show_fvg", "FVG", "fvg_child_ui"),
+      overlay_switch(ns, "show_ob", "OB", "ob_child_ui"),
+      overlay_switch(ns, "show_bos_choch", "BOS CHoCH", "bos_choch_child_ui"),
+      overlay_switch(
+        ns,
+        "show_kill",
+        "Kill Zone",
+        "kill_child_ui",
+        wrapper_id = ns("kill_col")
       ),
-      tags$div(
-        style = "min-width: 120px;",
-        switchInput(
-          ns("show_fvg"),
-          "FVG",
-          value = FALSE,
-          width = "100%",
-          labelWidth = 60
-        ),
-        uiOutput(ns("fvg_child_ui"))
-      ),
-      tags$div(
-        style = "min-width: 120px;",
-        switchInput(
-          ns("show_ob"),
-          "OB",
-          value = FALSE,
-          width = "100%",
-          labelWidth = 60
-        ),
-        uiOutput(ns("ob_child_ui"))
-      ),
-      tags$div(
-        style = "min-width: 120px;",
-        switchInput(
-          ns("show_bos_choch"),
-          "BOS CHoCH",
-          value = FALSE,
-          width = "100%",
-          labelWidth = 60
-        ),
-        uiOutput(ns("bos_choch_child_ui"))
-      ),
-      tags$div(
-        style = "min-width: 120px;",
-        div(
-          id = ns("kill_col"),
-          switchInput(
-            ns("show_kill"),
-            "Kill Zone",
-            value = FALSE,
-            width = "100%",
-            labelWidth = 60
-          ),
-          uiOutput(ns("kill_child_ui"))
-        )
-      ),
-      tags$div(
-        style = "min-width: 120px;",
-        switchInput(
-          ns("show_rw_weekly"),
-          "RW Weekly",
-          value = FALSE,
-          width = "100%",
-          labelWidth = 60
-        ),
-        uiOutput(ns("rw_weekly_child_ui"))
-      ),
-      tags$div(
-        style = "min-width: 120px;",
-        switchInput(
-          ns("show_rw_daily"),
-          "RW Daily",
-          value = FALSE,
-          width = "100%",
-          labelWidth = 60
-        ),
-        uiOutput(ns("rw_daily_child_ui"))
-      )
+      overlay_switch(ns, "show_rw_weekly", "RW Weekly", "rw_weekly_child_ui"),
+      overlay_switch(ns, "show_rw_daily", "RW Daily", "rw_daily_child_ui")
     ),
     br(),
 
