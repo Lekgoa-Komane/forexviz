@@ -255,3 +255,15 @@ chart_layout <- list(
 #' Asset classes that have overlay data (registry, BOS/CHoCH, reversal watch)
 #' @noRd
 overlay_asset_classes <- c("Currency_Pairs", "Metals")
+
+#' Input ids of the seven overlay master switches
+#' @noRd
+overlay_master_ids <- c(
+  "show_swing",
+  "show_fvg",
+  "show_ob",
+  "show_bos_choch",
+  "show_kill",
+  "show_rw_weekly",
+  "show_rw_daily"
+)

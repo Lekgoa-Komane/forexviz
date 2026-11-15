@@ -267,3 +267,29 @@ test_that("an asset class without overlay data never reads the registry", {
     expect_equal(total_points(swing_series()), 0)
   })
 })
+
+test_that("the seven overlay master switches and the note are in the UI", {
+  html <- as.character(mod_chart_ui("t"))
+  expect_length(unique(overlay_master_ids), 7)
+  for (id in overlay_master_ids) {
+    expect_match(html, paste0("t-", id))
+  }
+  expect_match(html, "overlay-note")
+  expect_match(html, "t-overlay_note")
+})
+
+test_that("the note appears only for asset classes without overlay data", {
+  testServer(mod_chart_server, args = list(config = make_valid_config()), {
+    session$setInputs(asset_class = "Commodity_Futures")
+    expect_match(
+      paste(output$overlay_note$html, collapse = ""),
+      "No overlay data"
+    )
+
+    session$setInputs(asset_class = "Currency_Pairs")
+    expect_false(grepl(
+      "No overlay data",
+      paste(output$overlay_note$html, collapse = "")
+    ))
+  })
+})

@@ -21,8 +21,8 @@ overlay_switch <- function(ns, id, label, child_ui_id, wrapper_id = NULL) {
       width = "100%",
       labelWidth = overlay_label_width
     ),
-    # uiOutput(ns(child_ui_id))
-    div(class = "overlay-children", uiOutput(ns(child_ui_id)))
+    div(class = "overlay-children", uiOutput(ns(child_ui_id))),
+    div(class = "overlay-note", uiOutput(ns("overlay_note")))
   )
 }
 
@@ -64,6 +64,13 @@ mod_chart_ui <- function(id) {
         width: 0;
         min-width: 100%;
         margin-top: 4px;
+      }
+      /* One reserved line for the note, so the page does not jump */
+      .overlay-note {
+        min-height: 22px;
+        font-size: 12px;
+        opacity: 0.7;
+        margin-bottom: 4px;
       }
     "
     )),
@@ -382,27 +389,6 @@ mod_chart_server <- function(id, config) {
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Swing point markers (NULL when swing points are off)
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # swing_series <- shiny::reactive({
-    #   show_high <- isTRUE(input$show_swing) && isTRUE(input$swing_high)
-    #   show_low <- isTRUE(input$show_swing) && isTRUE(input$swing_low)
-    #   if (!show_high && !show_low) {
-    #     return(NULL) # nothing to draw, so the registry is not even read
-    #   }
-    #   sel <- selection()
-    #   if (!sel$asset_class %in% overlay_asset_classes) {
-    #     return(NULL) # no overlay data for this asset class, on purpose
-    #   }
-    #   cd <- chart_data_full()
-    #   shiny::req(nrow(cd) > 0L)
-    #   build_swing_series(
-    #     registry = registry_selected(),
-    #     last_time = max(cd$date_time, na.rm = TRUE),
-    #     decimals = y_decimals(),
-    #     show_high = show_high,
-    #     show_low = show_low
-    #   )
-    # })
-
     swing_series <- shiny::reactive({
       show_high <- isTRUE(input$show_swing) && isTRUE(input$swing_high)
       show_low <- isTRUE(input$show_swing) && isTRUE(input$swing_low)
@@ -454,6 +440,26 @@ mod_chart_server <- function(id, config) {
           inline = TRUE
         )
       )
+    })
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Grey out the overlay switches where there is no overlay data
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    shiny::observeEvent(input$asset_class, {
+      available <- input$asset_class %in% overlay_asset_classes
+      for (id in overlay_master_ids) {
+        if (!available) {
+          shinyWidgets::updateSwitchInput(session, id, value = FALSE)
+        }
+        shinyWidgets::updateSwitchInput(session, id, disabled = !available)
+      }
+    })
+
+    output$overlay_note <- shiny::renderUI({
+      shiny::req(input$asset_class)
+      if (!input$asset_class %in% overlay_asset_classes) {
+        "No overlay data for this asset class"
+      }
     })
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
