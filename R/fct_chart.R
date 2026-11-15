@@ -83,7 +83,7 @@ build_candle_option <- function(
       extraCssText = "box-shadow: none;",
       alwaysShowContent = FALSE,
       transitionDuration = 0,
-      textStyle = list(color = cols$text, fontSize = 14),
+      textStyle = list(color = cols$text, fontSize = 14, fontWeight = "bold"),
       formatter = candle_tooltip_js(decimals, show_time)
     ),
     legend = list(show = FALSE),

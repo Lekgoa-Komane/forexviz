@@ -183,7 +183,6 @@ mod_chart_server <- function(id, config) {
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     candles_raw <- shiny::reactive({
       sel <- selection()
-      # shiny::req(input$timeframe)
 
       tryCatch(
         forexdatasets::get_dataset(
@@ -466,8 +465,6 @@ mod_chart_server <- function(id, config) {
     # Render Chart
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     output$chart <- renderEcharts4r({
-      # shiny::req(input$timeframe)
-
       # Get everything that can "wait" BEFORE the tryCatch (the Fix 2 rule)
       sel <- selection()
       cd <- chart_data_full()
@@ -478,7 +475,6 @@ mod_chart_server <- function(id, config) {
       dw <- default_window()
       zr <- zoom_pct(cd$date_time, dw$start, dw$end)
       dec <- y_decimals()
-      # swings <- swing_series() # NULL when swing points are off
       swings <- shiny::isolate(swing_series())
 
       tryCatch(
@@ -491,7 +487,6 @@ mod_chart_server <- function(id, config) {
             show_time = sel$timeframe %in% c("h4", "h1"),
             extra_series = swings
           )
-          # echarts4r::e_charts() |> echarts4r::e_list(opts)
           echarts4r::e_charts() |>
             echarts4r::e_list(opts) |>
             htmlwidgets::onRender(label_toggle_js())
