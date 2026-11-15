@@ -31,14 +31,6 @@ zoom_pct <- function(date_time, start, end) {
   )
 }
 
-#' Chart colours, kept in one place
-#' @noRd
-chart_colors <- list(
-  up = "#2ecc71", # soft green: price went up
-  down = "#e74c3c", # soft red: price went down
-  text = "#e6e6e6" # light text for the dark page
-)
-
 #' Build the full echarts option for the candlestick chart
 #'
 #' Packs the candles as one block of numbers (fast), instead of
@@ -49,9 +41,18 @@ chart_colors <- list(
 #' @param decimals Number of decimals on the price axis.
 #' @param zoom List from zoom_pct().
 #' @param show_time TRUE to show the time in the readout (H4, H1).
+#' @param extra_series List of extra echarts series (overlays), drawn after the
+#' candles.
 #' @return A list that echarts understands.
 #' @noRd
-build_candle_option <- function(dt, title, decimals, zoom, show_time = FALSE) {
+build_candle_option <- function(
+  dt,
+  title,
+  decimals,
+  zoom,
+  show_time = FALSE,
+  extra_series = list()
+) {
   cols <- chart_colors
 
   mat <- as.matrix(dt[, c("open", "close", "low", "high"), with = FALSE])
@@ -134,17 +135,20 @@ build_candle_option <- function(dt, title, decimals, zoom, show_time = FALSE) {
         end = zoom$end_pct
       )
     ),
-    series = list(list(
-      type = "candlestick",
-      name = "Price",
-      data = mat,
-      itemStyle = list(
-        color = cols$up,
-        color0 = cols$down,
-        borderColor = cols$up,
-        borderColor0 = cols$down
-      )
-    ))
+    series = c(
+      list(list(
+        type = "candlestick",
+        name = "Price",
+        data = mat,
+        itemStyle = list(
+          color = cols$up,
+          color0 = cols$down,
+          borderColor = cols$up,
+          borderColor0 = cols$down
+        )
+      )),
+      unname(extra_series)
+    )
   )
 }
 
@@ -226,8 +230,11 @@ chart_colors <- list(
   up = "#2ecc71", # soft green: price went up
   down = "#e74c3c", # soft red: price went down
   text = "#e6e6e6", # light text for the dark page
-  date = "#7fb3ff", # soft sky blue: the date in the readout
-  ohlc = "#ffd166" # warm amber: open, high, low, close in the readout
+  date = "#02D8E9", # soft sky blue: the date in the readout
+  ohlc = "#df691a", # warm amber: open, high, low, close in the readout
+  swing_high = "#FFA500", # orange: swing high triangles
+  swing_low = "#0000FF", # blue: swing low triangles
+  swing_label = "#FFFFFF" # white: the price next to a swing
 )
 
 #' Chart layout numbers (pixels), kept in one place
@@ -237,5 +244,14 @@ chart_layout <- list(
   readout_x = 75, # readout starts here: left edge of the price numbers
   readout_y = 38, # readout distance from the top
   grid_left = 130, # room kept for the price numbers and the "Price" name
-  grid_top = 80 # where the candles start
+  grid_top = 80, # where the candles start
+  swing_size = 12, # triangle size in pixels
+  swing_gap = 10, # pixels between the triangle and the candle
+  swing_dim = 0.35, # brightness of a broken swing (1 = full)
+  # price labels show only at or below this many visible candles
+  label_max_candles = 400
 )
+
+#' Asset classes that have overlay data (registry, BOS/CHoCH, reversal watch)
+#' @noRd
+overlay_asset_classes <- c("Currency_Pairs", "Metals")

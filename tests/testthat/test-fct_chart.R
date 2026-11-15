@@ -193,3 +193,27 @@ test_that("the hover readout hides when the mouse leaves the chart", {
   tip <- build_candle_option(one_candle(), "T", 5L, full_zoom)$tooltip
   expect_false(isTRUE(tip$alwaysShowContent))
 })
+
+test_that("extra series are added after the candles", {
+  extra <- list(
+    a = list(name = "a", type = "scatter"),
+    b = list(name = "b", type = "scatter")
+  )
+  opt <- build_candle_option(
+    one_candle(),
+    "T",
+    5L,
+    full_zoom,
+    extra_series = extra
+  )
+  expect_length(opt$series, 3)
+  expect_equal(opt$series[[1]]$type, "candlestick")
+  expect_equal(opt$series[[2]]$name, "a")
+  expect_equal(opt$series[[3]]$name, "b")
+
+  # without extras the chart is as before
+  expect_length(
+    build_candle_option(one_candle(), "T", 5L, full_zoom)$series,
+    1
+  )
+})

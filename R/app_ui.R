@@ -12,11 +12,15 @@ app_ui <- function(request) {
     bslib::page_navbar(
       title = "Trading Dashboard",
       theme = bslib::bs_theme(bootswatch = "superhero"),
+      navbar_options = bslib::navbar_options(
+        class = "bg-primary",
+        theme = "dark"
+      ),
 
       bslib::nav_spacer(),
-      # bslib::nav_item(
-      #   bslib::input_dark_mode(id = "dark_mode", mode = "dark")
-      # ),
+      bslib::nav_item(
+        bslib::input_dark_mode(id = "dark_mode", mode = "dark")
+      ),
 
       # Live panel
       bslib::nav_panel("Chart", mod_chart_ui("chart")),

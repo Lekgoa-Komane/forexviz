@@ -18,6 +18,7 @@ Imports:
     DBI,
     echarts4r,
     forexdatasets,
+    forexengine,
     golem,
     htmlwidgets,
     logger,

@@ -21,7 +21,8 @@ overlay_switch <- function(ns, id, label, child_ui_id, wrapper_id = NULL) {
       width = "100%",
       labelWidth = overlay_label_width
     ),
-    uiOutput(ns(child_ui_id))
+    # uiOutput(ns(child_ui_id))
+    div(class = "overlay-children", uiOutput(ns(child_ui_id)))
   )
 }
 
@@ -40,7 +41,9 @@ overlay_switch <- function(ns, id, label, child_ui_id, wrapper_id = NULL) {
 mod_chart_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    # --- Style for the overlay switches (only touches this row) ------------
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Style for the overlay switches (only touches this row)
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     tags$style(HTML(
       "
       .overlay-switches {
@@ -56,10 +59,18 @@ mod_chart_ui <- function(id) {
         text-overflow: ellipsis;
         overflow: hidden;
       }
+      /* Children sit under their switch and never make it wider */
+      .overlay-children {
+        width: 0;
+        min-width: 100%;
+        margin-top: 4px;
+      }
     "
     )),
 
-    # --- Top controls: ticker, timeframe, date range -----------------------
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Top controls: ticker, timeframe, date range
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     fluidRow(
       column(3, selectInput(ns("asset_class"), "Asset Class", choices = NULL)),
       column(2, selectInput(ns("ticker"), "Ticker", choices = NULL)),
@@ -84,7 +95,9 @@ mod_chart_ui <- function(id) {
     ),
     br(),
 
-    # --- Overlay switches: one row, same size, wraps when narrow -----------
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Overlay switches: one row, same size, wraps when narrow
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     div(
       class = "overlay-switches",
       overlay_switch(ns, "show_swing", "Swing Points", "swing_child_ui"),
@@ -103,7 +116,9 @@ mod_chart_ui <- function(id) {
     ),
     br(),
 
-    # --- Chart output ------------------------------------------------------
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Chart output
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     fluidRow(column(12, echarts4rOutput(ns("chart"), height = "600px")))
   )
 }
@@ -138,7 +153,9 @@ mod_chart_server <- function(id, config) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    # --- The doorman: only continue when ticker belongs to the asset class ---
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # The doorman: only continue when ticker belongs to the asset class
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     selection <- shiny::reactive({
       ac <- input$asset_class
       tk <- input$ticker
@@ -149,10 +166,14 @@ mod_chart_server <- function(id, config) {
       list(asset_class = ac, ticker = tk, timeframe = tf)
     })
 
-    # --- The notebook: last ticker used in each asset class ---
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # The notebook: last ticker used in each asset class
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     last_ticker <- shiny::reactiveValues()
 
-    # --- Candles from forexdatasets ---
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Candles from forexdatasets
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     candles_raw <- shiny::reactive({
       sel <- selection()
       # shiny::req(input$timeframe)
@@ -177,7 +198,9 @@ mod_chart_server <- function(id, config) {
       )
     })
 
-    # --- Build time_chr (echarts category axis label) ---
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Build time_chr (echarts category axis label)
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     chart_data_full <- shiny::reactive({
       dt <- data.table::copy(candles_raw())
       if (nrow(dt) == 0L) {
@@ -191,7 +214,9 @@ mod_chart_server <- function(id, config) {
       dt
     })
 
-    # ---- Populate asset class dropdown from config ---
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Populate asset class dropdown from config
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     shiny::observe({
       ac <- config$asset_classes
       shiny::req(ac)
@@ -205,7 +230,9 @@ mod_chart_server <- function(id, config) {
       )
     })
 
-    # ---- When asset class changes: pick the remembered ticker, or the first ---
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # When asset class changes: pick the remembered ticker, or the first
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     shiny::observeEvent(
       input$asset_class,
       {
@@ -252,7 +279,9 @@ mod_chart_server <- function(id, config) {
       ignoreInit = FALSE
     )
 
-    # ---- Write in the notebook (only if the ticker belongs to this class) ---
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Write in the notebook (only if the ticker belongs to this class)
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     shiny::observeEvent(input$ticker, {
       ac <- input$asset_class
       if (
@@ -262,7 +291,9 @@ mod_chart_server <- function(id, config) {
       }
     })
 
-    # --- One place that decides the default window ---
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # One place that decides the default window
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     default_window <- shiny::reactive({
       sel <- selection()
       dt <- chart_data_full()
@@ -274,7 +305,9 @@ mod_chart_server <- function(id, config) {
       )
     })
 
-    # --- Keep the date boxes in step with the chart's default window --
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Keep the date boxes in step with the chart's default window
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     shiny::observeEvent(default_window(), {
       dw <- default_window()
       shiny::updateDateRangeInput(
@@ -285,7 +318,9 @@ mod_chart_server <- function(id, config) {
       )
     })
 
-    # --- User picks a date range: only slide the zoom, no repaint ---
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # User picks a date range: only slide the zoom, no repaint
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     shiny::observeEvent(
       input$date_range,
       {
@@ -321,7 +356,109 @@ mod_chart_server <- function(id, config) {
       price_decimals(sel$ticker, config)
     })
 
-    # --- Render Chart ---
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Registry rows for the chosen ticker and timeframe
+    # Only read when an overlay needs it (a reactive that nobody asks for
+    # is never run).
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    registry_selected <- shiny::reactive({
+      sel <- selection() # can "wait", so it stays outside the tryCatch
+      tryCatch(
+        forexengine::get_result(
+          table = "registry",
+          timeframe = sel$timeframe,
+          ticker = sel$ticker,
+          asset_class = sel$asset_class,
+          config = config
+        ),
+        error = function(e) {
+          logger::log_error("Failed to load registry: {conditionMessage(e)}")
+          shiny::showNotification("Error loading registry data", type = "error")
+          data.table::data.table()
+        }
+      )
+    })
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Swing point markers (NULL when swing points are off)
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # swing_series <- shiny::reactive({
+    #   show_high <- isTRUE(input$show_swing) && isTRUE(input$swing_high)
+    #   show_low <- isTRUE(input$show_swing) && isTRUE(input$swing_low)
+    #   if (!show_high && !show_low) {
+    #     return(NULL) # nothing to draw, so the registry is not even read
+    #   }
+    #   sel <- selection()
+    #   if (!sel$asset_class %in% overlay_asset_classes) {
+    #     return(NULL) # no overlay data for this asset class, on purpose
+    #   }
+    #   cd <- chart_data_full()
+    #   shiny::req(nrow(cd) > 0L)
+    #   build_swing_series(
+    #     registry = registry_selected(),
+    #     last_time = max(cd$date_time, na.rm = TRUE),
+    #     decimals = y_decimals(),
+    #     show_high = show_high,
+    #     show_low = show_low
+    #   )
+    # })
+
+    swing_series <- shiny::reactive({
+      show_high <- isTRUE(input$show_swing) && isTRUE(input$swing_high)
+      show_low <- isTRUE(input$show_swing) && isTRUE(input$swing_low)
+      sel <- selection()
+      cd <- chart_data_full()
+      shiny::req(nrow(cd) > 0L)
+
+      # Read the registry only when it is needed, and only where it exists
+      wanted <- (show_high || show_low) &&
+        sel$asset_class %in% overlay_asset_classes
+      registry <- if (wanted) registry_selected() else NULL
+
+      build_swing_series(
+        registry = registry,
+        last_time = max(cd$date_time, na.rm = TRUE),
+        decimals = y_decimals(),
+        show_high = show_high,
+        show_low = show_low
+      )
+    })
+
+    shiny::observeEvent(
+      swing_series(),
+      {
+        session$sendCustomMessage(
+          "forexviz_set_overlay",
+          list(id = ns("chart"), series = unname(swing_series()))
+        )
+      },
+      ignoreInit = TRUE
+    )
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Child switches for swing points
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    output$swing_child_ui <- shiny::renderUI({
+      shiny::req(isTRUE(input$show_swing))
+      tagList(
+        shinyWidgets::switchInput(
+          ns("swing_high"),
+          "High",
+          value = TRUE,
+          inline = TRUE
+        ),
+        shinyWidgets::switchInput(
+          ns("swing_low"),
+          "Low",
+          value = TRUE,
+          inline = TRUE
+        )
+      )
+    })
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Render Chart
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     output$chart <- renderEcharts4r({
       # shiny::req(input$timeframe)
 
@@ -335,6 +472,8 @@ mod_chart_server <- function(id, config) {
       dw <- default_window()
       zr <- zoom_pct(cd$date_time, dw$start, dw$end)
       dec <- y_decimals()
+      # swings <- swing_series() # NULL when swing points are off
+      swings <- shiny::isolate(swing_series())
 
       tryCatch(
         {
@@ -343,9 +482,13 @@ mod_chart_server <- function(id, config) {
             title = paste0(toupper(sel$ticker), " _ ", toupper(sel$timeframe)),
             decimals = dec,
             zoom = zr,
-            show_time = sel$timeframe %in% c("h4", "h1")
+            show_time = sel$timeframe %in% c("h4", "h1"),
+            extra_series = swings
           )
-          echarts4r::e_charts() |> echarts4r::e_list(opts)
+          # echarts4r::e_charts() |> echarts4r::e_list(opts)
+          echarts4r::e_charts() |>
+            echarts4r::e_list(opts) |>
+            htmlwidgets::onRender(label_toggle_js())
         },
         error = function(e) {
           logger::log_error("Chart render failed: {conditionMessage(e)}")
