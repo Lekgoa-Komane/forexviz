@@ -115,7 +115,8 @@ build_candle_option <- function(
         ))
       ),
       axisLine = axis_line,
-      nameTextStyle = axis_name_style
+      nameTextStyle = axis_name_style,
+      includeMarkerInExtent = FALSE
     ),
     dataZoom = list(
       list(
@@ -234,7 +235,11 @@ chart_colors <- list(
   ohlc = "#df691a", # warm amber: open, high, low, close in the readout
   swing_high = "#FFA500", # orange: swing high triangles
   swing_low = "#0000FF", # blue: swing low triangles
-  swing_label = "#FFFFFF" # white: the price next to a swing
+  swing_label = "#FFFFFF", # white: the price next to a swing
+  zone_bull_fvg = "rgba(0,255,0,0.2)", # soft green
+  zone_bear_fvg = "rgba(255,0,0,0.2)", # soft red
+  zone_bull_ob = "rgba(0,0,255,0.15)", # soft blue
+  zone_bear_ob = "rgba(255,165,0,0.15)" # soft orange
 )
 
 #' Chart layout numbers (pixels), kept in one place

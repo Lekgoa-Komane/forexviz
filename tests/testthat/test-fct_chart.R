@@ -217,3 +217,8 @@ test_that("extra series are added after the candles", {
     1
   )
 })
+
+# test_that("shaded zones never stretch the price axis", {
+#   opt <- build_candle_option(one_candle(), "T", 5L, full_zoom)
+#   expect_false(opt$yAxis$includeMarkerInExtent)
+# })

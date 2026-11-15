@@ -293,3 +293,124 @@ test_that("the note appears only for asset classes without overlay data", {
     ))
   })
 })
+
+fake_full_registry <- function() {
+  placeholder <- as.POSIXct("2027-02-05 23:00:00", tz = "UTC")
+  data.table::data.table(
+    type = c("swing_high", "bull_fvg", "bear_fvg", "bull_ob"),
+    formed_at = as.POSIXct(
+      c("2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05"),
+      tz = "UTC"
+    ),
+    critical_value = c(1.3, NA, NA, NA),
+    invalidated_at = rep(placeholder, 4),
+    type_zone_bot_value = c(NA, 1.10, 1.30, 1.00),
+    type_zone_top_value = c(NA, 1.15, 1.35, 1.05),
+    mit_zone_dist_at = rep(placeholder, 4)
+  )
+}
+
+total_rectangles <- function(series) {
+  sum(vapply(series, function(x) length(x$markArea$data), integer(1)))
+}
+
+test_that("bull_bear_switches builds a Bull and a Bear switch", {
+  html <- as.character(bull_bear_switches(shiny::NS("t"), "fvg"))
+  expect_match(html, "t-fvg_bull")
+  expect_match(html, "t-fvg_bear")
+})
+
+test_that("zone_series follows the FVG and OB switches", {
+  testthat::local_mocked_bindings(
+    get_dataset = function(...) fake_candles(),
+    .package = "forexdatasets"
+  )
+  testthat::local_mocked_bindings(
+    get_result = function(...) fake_full_registry(),
+    .package = "forexengine"
+  )
+  testServer(mod_chart_server, args = list(config = make_valid_config()), {
+    session$setInputs(
+      asset_class = "Currency_Pairs",
+      ticker = "eurusd",
+      timeframe = "weekly"
+    )
+
+    session$setInputs(show_fvg = FALSE, show_ob = FALSE)
+    expect_length(zone_series(), 4)
+    expect_equal(total_rectangles(zone_series()), 0)
+
+    session$setInputs(show_fvg = TRUE, fvg_bull = TRUE, fvg_bear = FALSE)
+    s <- zone_series()
+    expect_length(s$zones_bull_fvg$markArea$data, 1)
+    expect_length(s$zones_bear_fvg$markArea$data, 0)
+    expect_equal(total_rectangles(s), 1)
+
+    session$setInputs(fvg_bear = TRUE)
+    expect_equal(total_rectangles(zone_series()), 2)
+
+    session$setInputs(
+      show_fvg = FALSE,
+      show_ob = TRUE,
+      ob_bull = TRUE,
+      ob_bear = TRUE
+    )
+    s <- zone_series()
+    expect_length(s$zones_bull_ob$markArea$data, 1)
+    expect_equal(total_rectangles(s), 1) # no bear OB in the registry
+  })
+})
+
+test_that("overlay_series holds the four swing and the four zone series", {
+  testthat::local_mocked_bindings(
+    get_dataset = function(...) fake_candles(),
+    .package = "forexdatasets"
+  )
+  testthat::local_mocked_bindings(
+    get_result = function(...) fake_full_registry(),
+    .package = "forexengine"
+  )
+  testServer(mod_chart_server, args = list(config = make_valid_config()), {
+    session$setInputs(
+      asset_class = "Currency_Pairs",
+      ticker = "eurusd",
+      timeframe = "weekly"
+    )
+    expect_named(
+      overlay_series(),
+      c(
+        "swing_high",
+        "swing_high_broken",
+        "swing_low",
+        "swing_low_broken",
+        "zones_bull_fvg",
+        "zones_bear_fvg",
+        "zones_bull_ob",
+        "zones_bear_ob"
+      )
+    )
+  })
+})
+
+test_that("no zones, and no registry read, where there is no overlay data", {
+  testthat::local_mocked_bindings(
+    get_dataset = function(...) fake_candles(),
+    .package = "forexdatasets"
+  )
+  testthat::local_mocked_bindings(
+    get_result = function(...) stop("registry must not be read"),
+    .package = "forexengine"
+  )
+  testServer(mod_chart_server, args = list(config = make_valid_config()), {
+    session$setInputs(
+      asset_class = "Commodity_Futures",
+      ticker = "GC.F",
+      timeframe = "weekly",
+      show_fvg = TRUE,
+      fvg_bull = TRUE,
+      fvg_bear = TRUE,
+      show_ob = FALSE
+    )
+    expect_equal(total_rectangles(zone_series()), 0)
+  })
+})

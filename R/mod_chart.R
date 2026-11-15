@@ -26,6 +26,28 @@ overlay_switch <- function(ns, id, label, child_ui_id, wrapper_id = NULL) {
   )
 }
 
+#' The Bull and Bear child switches of an overlay (both on by default)
+#'
+#' @param ns The module's namespace function.
+#' @param prefix "fvg" or "ob".
+#' @noRd
+bull_bear_switches <- function(ns, prefix) {
+  tagList(
+    switchInput(
+      ns(paste0(prefix, "_bull")),
+      "Bull",
+      value = TRUE,
+      inline = TRUE
+    ),
+    switchInput(
+      ns(paste0(prefix, "_bear")),
+      "Bear",
+      value = TRUE,
+      inline = TRUE
+    )
+  )
+}
+
 #' price_chart UI Function
 #'
 #' @description A shiny Module.
@@ -409,12 +431,23 @@ mod_chart_server <- function(id, config) {
       )
     })
 
+    # shiny::observeEvent(
+    #   swing_series(),
+    #   {
+    #     session$sendCustomMessage(
+    #       "forexviz_set_overlay",
+    #       list(id = ns("chart"), series = unname(swing_series()))
+    #     )
+    #   },
+    #   ignoreInit = TRUE
+    # )
+
     shiny::observeEvent(
-      swing_series(),
+      overlay_series(),
       {
         session$sendCustomMessage(
           "forexviz_set_overlay",
-          list(id = ns("chart"), series = unname(swing_series()))
+          list(id = ns("chart"), series = unname(overlay_series()))
         )
       },
       ignoreInit = TRUE
@@ -462,6 +495,84 @@ mod_chart_server <- function(id, config) {
     })
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Child switches for FVG & OB
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    output$fvg_child_ui <- shiny::renderUI({
+      shiny::req(isTRUE(input$show_fvg))
+      bull_bear_switches(ns, "fvg")
+    })
+
+    output$ob_child_ui <- shiny::renderUI({
+      shiny::req(isTRUE(input$show_ob))
+      bull_bear_switches(ns, "ob")
+    })
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Exclusive pairs: switching one on switches the other off
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    make_exclusive <- function(on, off) {
+      shiny::observeEvent(
+        input[[on]],
+        {
+          if (isTRUE(input[[on]])) {
+            shinyWidgets::updateSwitchInput(session, off, value = FALSE)
+          }
+        },
+        ignoreInit = TRUE
+      )
+    }
+    make_exclusive("show_fvg", "show_ob")
+    make_exclusive("show_ob", "show_fvg")
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>-
+    # FVG and OB zone rectangles (always four series, empty when off)
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    zone_series <- shiny::reactive({
+      sel <- selection()
+      cd <- chart_data_full()
+      shiny::req(nrow(cd) > 0L)
+
+      fvg_on <- isTRUE(input$show_fvg)
+      ob_on <- isTRUE(input$show_ob)
+      show_fvg_bull <- fvg_on && isTRUE(input$fvg_bull)
+      show_fvg_bear <- fvg_on && isTRUE(input$fvg_bear)
+      show_ob_bull <- ob_on && isTRUE(input$ob_bull)
+      show_ob_bear <- ob_on && isTRUE(input$ob_bear)
+
+      # Read the registry only when needed, and only where it exists
+      wanted <- (show_fvg_bull ||
+        show_fvg_bear ||
+        show_ob_bull ||
+        show_ob_bear) &&
+        sel$asset_class %in% overlay_asset_classes
+      registry <- if (wanted) registry_selected() else NULL
+
+      c(
+        build_zone_series(
+          registry,
+          cd$date_time,
+          "fvg",
+          show_bull = show_fvg_bull,
+          show_bear = show_fvg_bear
+        ),
+        build_zone_series(
+          registry,
+          cd$date_time,
+          "ob",
+          show_bull = show_ob_bull,
+          show_bear = show_ob_bear
+        )
+      )
+    })
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Everything drawn on top of the candles, in one list
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    overlay_series <- shiny::reactive({
+      c(swing_series(), zone_series())
+    })
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Render Chart
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     output$chart <- renderEcharts4r({
@@ -475,7 +586,8 @@ mod_chart_server <- function(id, config) {
       dw <- default_window()
       zr <- zoom_pct(cd$date_time, dw$start, dw$end)
       dec <- y_decimals()
-      swings <- shiny::isolate(swing_series())
+      # swings <- shiny::isolate(swing_series())
+      overlays <- shiny::isolate(overlay_series())
 
       tryCatch(
         {
@@ -485,7 +597,8 @@ mod_chart_server <- function(id, config) {
             decimals = dec,
             zoom = zr,
             show_time = sel$timeframe %in% c("h4", "h1"),
-            extra_series = swings
+            # extra_series = swings
+            extra_series = overlays
           )
           echarts4r::e_charts() |>
             echarts4r::e_list(opts) |>
