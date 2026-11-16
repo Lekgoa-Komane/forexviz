@@ -83,7 +83,7 @@ build_candle_option <- function(
       extraCssText = "box-shadow: none;",
       alwaysShowContent = FALSE,
       transitionDuration = 0,
-      textStyle = list(color = cols$text, fontSize = 14, fontWeight = "bold"),
+      textStyle = list(color = cols$text, fontSize = 16, fontWeight = "bold"),
       formatter = candle_tooltip_js(decimals, show_time)
     ),
     legend = list(show = FALSE),
@@ -98,7 +98,7 @@ build_candle_option <- function(
       name = "Date_Time",
       nameLocation = "middle",
       nameGap = 50,
-      axisLabel = list(color = cols$text),
+      axisLabel = list(color = cols$text, fontSize = 14),
       axisLine = axis_line,
       nameTextStyle = axis_name_style
     ),
@@ -109,6 +109,7 @@ build_candle_option <- function(
       nameGap = 40,
       axisLabel = list(
         color = cols$text,
+        fontSize = 14,
         formatter = htmlwidgets::JS(sprintf(
           "function(v){ return v.toFixed(%d); }",
           decimals
@@ -238,8 +239,11 @@ chart_colors <- list(
   swing_label = "#FFFFFF", # white: the price next to a swing
   zone_bull_fvg = "rgba(0,255,0,0.2)", # soft green
   zone_bear_fvg = "rgba(255,0,0,0.2)", # soft red
-  zone_bull_ob = "rgba(0,0,255,0.15)", # soft blue
-  zone_bear_ob = "rgba(255,165,0,0.15)" # soft orange
+  zone_bull_ob = "rgba(0,255,255,0.15)", # soft blue
+  zone_bear_ob = "rgba(255,165,0,0.15)", # soft orange
+  line_bull = "rgba(46,204,113,0.85)", # candle green, a little see-through
+  line_bear = "rgba(231,76,60,0.85)", # candle red, a little see-through
+  line_label = "#FFFFFF" # the BOS or CHoCH word on a line
 )
 
 #' Chart layout numbers (pixels), kept in one place
@@ -254,7 +258,9 @@ chart_layout <- list(
   swing_gap = 10, # pixels between the triangle and the candle
   swing_dim = 0.35, # brightness of a broken swing (1 = full)
   # price labels show only at or below this many visible candles
-  label_max_candles = 400
+  label_max_candles = 400,
+  line_width = 1.5, # thickness of BOS and CHoCH lines
+  line_label_size = 10 # size of the BOS or CHoCH word
 )
 
 #' Asset classes that have overlay data (registry, BOS/CHoCH, reversal watch)

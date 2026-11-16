@@ -144,6 +144,8 @@ function(el, x) {
     (opt.series || []).forEach(function(s) {
       if (s.type === 'scatter') {
         changes.push({ name: s.name, label: { show: show } });
+      } else if (s.type === 'line' && s.markLine) {
+        changes.push({ name: s.name, markLine: { label: { show: show } } });
       }
     });
     if (changes.length) { chart.setOption({ series: changes }); }

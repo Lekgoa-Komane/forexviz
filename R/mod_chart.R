@@ -48,6 +48,16 @@ bull_bear_switches <- function(ns, prefix) {
   )
 }
 
+#' The BOS and CHoCH child switches. CHoCH is on by default; the two are
+#' exclusive, which the server takes care of.
+#' @noRd
+bos_choch_switches <- function(ns) {
+  tagList(
+    switchInput(ns("bos_lines"), "BOS", value = FALSE, inline = TRUE),
+    switchInput(ns("choch_lines"), "CHoCH", value = TRUE, inline = TRUE)
+  )
+}
+
 #' price_chart UI Function
 #'
 #' @description A shiny Module.
@@ -408,6 +418,30 @@ mod_chart_server <- function(id, config) {
     })
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # BOS and CHoCH table for the chosen ticker and timeframe
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    bos_choch_selected <- shiny::reactive({
+      sel <- selection()
+      tryCatch(
+        forexengine::get_result(
+          table = "bos_choch",
+          timeframe = sel$timeframe,
+          ticker = sel$ticker,
+          asset_class = sel$asset_class,
+          config = config
+        ),
+        error = function(e) {
+          logger::log_error("Failed to load bos_choch: {conditionMessage(e)}")
+          shiny::showNotification(
+            "Error loading BOS/CHoCH data",
+            type = "error"
+          )
+          data.table::data.table()
+        }
+      )
+    })
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Swing point markers (NULL when swing points are off)
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     swing_series <- shiny::reactive({
@@ -431,17 +465,6 @@ mod_chart_server <- function(id, config) {
       )
     })
 
-    # shiny::observeEvent(
-    #   swing_series(),
-    #   {
-    #     session$sendCustomMessage(
-    #       "forexviz_set_overlay",
-    #       list(id = ns("chart"), series = unname(swing_series()))
-    #     )
-    #   },
-    #   ignoreInit = TRUE
-    # )
-
     shiny::observeEvent(
       overlay_series(),
       {
@@ -454,7 +477,7 @@ mod_chart_server <- function(id, config) {
     )
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # Child switches for swing points
+    # Child switches for swing points, FVG & OB & BOS/CHoCH
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     output$swing_child_ui <- shiny::renderUI({
       shiny::req(isTRUE(input$show_swing))
@@ -472,6 +495,21 @@ mod_chart_server <- function(id, config) {
           inline = TRUE
         )
       )
+    })
+
+    output$fvg_child_ui <- shiny::renderUI({
+      shiny::req(isTRUE(input$show_fvg))
+      bull_bear_switches(ns, "fvg")
+    })
+
+    output$ob_child_ui <- shiny::renderUI({
+      shiny::req(isTRUE(input$show_ob))
+      bull_bear_switches(ns, "ob")
+    })
+
+    output$bos_choch_child_ui <- shiny::renderUI({
+      shiny::req(isTRUE(input$show_bos_choch))
+      bos_choch_switches(ns)
     })
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -495,19 +533,6 @@ mod_chart_server <- function(id, config) {
     })
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # Child switches for FVG & OB
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    output$fvg_child_ui <- shiny::renderUI({
-      shiny::req(isTRUE(input$show_fvg))
-      bull_bear_switches(ns, "fvg")
-    })
-
-    output$ob_child_ui <- shiny::renderUI({
-      shiny::req(isTRUE(input$show_ob))
-      bull_bear_switches(ns, "ob")
-    })
-
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Exclusive pairs: switching one on switches the other off
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     make_exclusive <- function(on, off) {
@@ -523,10 +548,12 @@ mod_chart_server <- function(id, config) {
     }
     make_exclusive("show_fvg", "show_ob")
     make_exclusive("show_ob", "show_fvg")
+    make_exclusive("bos_lines", "choch_lines")
+    make_exclusive("choch_lines", "bos_lines")
 
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>-
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # FVG and OB zone rectangles (always four series, empty when off)
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     zone_series <- shiny::reactive({
       sel <- selection()
       cd <- chart_data_full()
@@ -565,11 +592,39 @@ mod_chart_server <- function(id, config) {
       )
     })
 
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # BOS and CHoCH lines (always four series, empty when off)
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    bos_choch_series <- shiny::reactive({
+      sel <- selection()
+      cd <- chart_data_full()
+      shiny::req(nrow(cd) > 0L)
+
+      master <- isTRUE(input$show_bos_choch)
+      show_bos <- master && isTRUE(input$bos_lines)
+      show_choch <- master && isTRUE(input$choch_lines)
+
+      # Read the tables only when needed, and only where they exist
+      wanted <- (show_bos || show_choch) &&
+        sel$asset_class %in% overlay_asset_classes
+      bc <- if (wanted) bos_choch_selected() else NULL
+      reg <- if (wanted) registry_selected() else NULL
+
+      build_line_series(
+        bos_choch = bc,
+        registry = reg,
+        candle_times = cd$date_time,
+        timeframe = sel$timeframe,
+        show_bos = show_bos,
+        show_choch = show_choch
+      )
+    })
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Everything drawn on top of the candles, in one list
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     overlay_series <- shiny::reactive({
-      c(swing_series(), zone_series())
+      c(swing_series(), zone_series(), bos_choch_series())
     })
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

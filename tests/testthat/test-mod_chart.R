@@ -386,7 +386,11 @@ test_that("overlay_series holds the four swing and the four zone series", {
         "zones_bull_fvg",
         "zones_bear_fvg",
         "zones_bull_ob",
-        "zones_bear_ob"
+        "zones_bear_ob",
+        "lines_bos_bull",
+        "lines_bos_bear",
+        "lines_choch_bull",
+        "lines_choch_bear"
       )
     )
   })
@@ -412,5 +416,98 @@ test_that("no zones, and no registry read, where there is no overlay data", {
       show_ob = FALSE
     )
     expect_equal(total_rectangles(zone_series()), 0)
+  })
+})
+
+# BOS/CHoCH
+fake_module_bos_choch <- function() {
+  data.table::data.table(
+    date_time = fake_candles()$date_time,
+    weekly_bos_type = c(NA, NA, NA, "bull_bos", rep(NA, 6)),
+    weekly_choch_type = c(rep(NA, 6), "bear_choch", rep(NA, 3)),
+    weekly_choch_level = c(rep(NA_real_, 6), 1.0, rep(NA_real_, 3)),
+    weekly_prev_sh = c(NA, NA, NA, 1.3, rep(NA_real_, 6)),
+    weekly_prev_sl = rep(NA_real_, 10)
+  )
+}
+
+fake_lines_registry <- function() {
+  data.table::data.table(
+    type = c("swing_high", "swing_low"),
+    formed_at = as.POSIXct(c("2026-01-02", "2026-01-03"), tz = "UTC"),
+    critical_value = c(1.3, 1.0)
+  )
+}
+
+total_marklines <- function(series) {
+  sum(vapply(series, function(x) length(x$markLine$data), integer(1)))
+}
+
+# a stand-in for forexengine::get_result() that knows both tables
+fake_get_result <- function(table, ...) {
+  if (table == "bos_choch") fake_module_bos_choch() else fake_lines_registry()
+}
+
+test_that("bos_choch_switches builds a BOS and a CHoCH switch", {
+  html <- as.character(bos_choch_switches(shiny::NS("t")))
+  expect_match(html, "t-bos_lines")
+  expect_match(html, "t-choch_lines")
+})
+
+test_that("bos_choch_series follows the BOS and CHoCH switches", {
+  testthat::local_mocked_bindings(
+    get_dataset = function(...) fake_candles(),
+    .package = "forexdatasets"
+  )
+  testthat::local_mocked_bindings(
+    get_result = fake_get_result,
+    .package = "forexengine"
+  )
+  testServer(mod_chart_server, args = list(config = make_valid_config()), {
+    session$setInputs(
+      asset_class = "Currency_Pairs",
+      ticker = "eurusd",
+      timeframe = "weekly"
+    )
+
+    session$setInputs(show_bos_choch = FALSE)
+    expect_length(bos_choch_series(), 4)
+    expect_equal(total_marklines(bos_choch_series()), 0)
+
+    session$setInputs(
+      show_bos_choch = TRUE,
+      bos_lines = TRUE,
+      choch_lines = FALSE
+    )
+    s <- bos_choch_series()
+    expect_length(s$lines_bos_bull$markLine$data, 1)
+    expect_equal(total_marklines(s), 1)
+
+    session$setInputs(bos_lines = FALSE, choch_lines = TRUE)
+    s <- bos_choch_series()
+    expect_length(s$lines_choch_bear$markLine$data, 1)
+    expect_equal(total_marklines(s), 1)
+  })
+})
+
+test_that("no lines, and no table read, where there is no overlay data", {
+  testthat::local_mocked_bindings(
+    get_dataset = function(...) fake_candles(),
+    .package = "forexdatasets"
+  )
+  testthat::local_mocked_bindings(
+    get_result = function(...) stop("tables must not be read"),
+    .package = "forexengine"
+  )
+  testServer(mod_chart_server, args = list(config = make_valid_config()), {
+    session$setInputs(
+      asset_class = "Commodity_Futures",
+      ticker = "GC.F",
+      timeframe = "weekly",
+      show_bos_choch = TRUE,
+      bos_lines = TRUE,
+      choch_lines = TRUE
+    )
+    expect_equal(total_marklines(bos_choch_series()), 0)
   })
 })
