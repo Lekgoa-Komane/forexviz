@@ -158,7 +158,6 @@ mod_chart_ui <- function(id) {
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Chart output
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # fluidRow(column(12, echarts4rOutput(ns("chart"), height = "600px")))
     fluidRow(
       column(
         12,
@@ -697,7 +696,7 @@ mod_chart_server <- function(id, config) {
       )
 
       DT::datatable(
-        cd[, ..cols],
+        cd[, cols, with = FALSE],
         rownames = FALSE,
         options = list(
           pageLength = 8,
