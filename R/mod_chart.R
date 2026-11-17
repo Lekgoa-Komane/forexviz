@@ -58,6 +58,15 @@ bos_choch_switches <- function(ns) {
   )
 }
 
+#' The London and NY child switches of Kill Zone (both on by default)
+#' @noRd
+session_switches <- function(ns) {
+  tagList(
+    switchInput(ns("kz_london"), "London", value = TRUE, inline = TRUE),
+    switchInput(ns("kz_ny"), "NY", value = TRUE, inline = TRUE)
+  )
+}
+
 #' price_chart UI Function
 #'
 #' @description A shiny Module.
@@ -489,7 +498,7 @@ mod_chart_server <- function(id, config) {
     )
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # Child switches for swing points, FVG & OB & BOS/CHoCH
+    # Child switches for swing points, fvg, ob, bos/choch, kill_zones
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     output$swing_child_ui <- shiny::renderUI({
       shiny::req(isTRUE(input$show_swing))
@@ -524,24 +533,53 @@ mod_chart_server <- function(id, config) {
       bos_choch_switches(ns)
     })
 
+    output$kill_child_ui <- shiny::renderUI({
+      shiny::req(isTRUE(input$show_kill))
+      session_switches(ns)
+    })
+
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Grey out the overlay switches where there is no overlay data
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    shiny::observeEvent(input$asset_class, {
-      available <- input$asset_class %in% overlay_asset_classes
+    # shiny::observeEvent(input$asset_class, {
+    #   available <- input$asset_class %in% overlay_asset_classes
+    #   for (id in overlay_master_ids) {
+    #     if (!available) {
+    #       shinyWidgets::updateSwitchInput(session, id, value = FALSE)
+    #     }
+    #     shinyWidgets::updateSwitchInput(session, id, disabled = !available)
+    #   }
+    # })
+    #
+    # output$overlay_note <- shiny::renderUI({
+    #   shiny::req(input$asset_class)
+    #   if (!input$asset_class %in% overlay_asset_classes) {
+    #     "No overlay data for this asset class"
+    #   }
+    # })
+
+    # ---- Which overlay switches may be used here ---------------------------
+    availability <- shiny::reactive({
+      sel <- selection()
+      overlay_availability(sel$asset_class, sel$timeframe)
+    })
+
+    shiny::observeEvent(availability(), {
+      available <- availability()$available
       for (id in overlay_master_ids) {
-        if (!available) {
+        if (!available[[id]]) {
           shinyWidgets::updateSwitchInput(session, id, value = FALSE)
         }
-        shinyWidgets::updateSwitchInput(session, id, disabled = !available)
+        shinyWidgets::updateSwitchInput(
+          session,
+          id,
+          disabled = !available[[id]]
+        )
       }
     })
 
     output$overlay_note <- shiny::renderUI({
-      shiny::req(input$asset_class)
-      if (!input$asset_class %in% overlay_asset_classes) {
-        "No overlay data for this asset class"
-      }
+      availability()$note
     })
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -633,10 +671,36 @@ mod_chart_server <- function(id, config) {
     })
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Kill zone bands (always two series, empty when off or not H1)
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    kill_zone_series <- shiny::reactive({
+      sel <- selection()
+      cd <- chart_data_full()
+      shiny::req(nrow(cd) > 0L)
+
+      master <- isTRUE(input$show_kill)
+      show_london <- master && isTRUE(input$kz_london)
+      show_ny <- master && isTRUE(input$kz_ny)
+
+      # Read the table only when needed, only where it exists, only on H1
+      wanted <- (show_london || show_ny) &&
+        sel$asset_class %in% overlay_asset_classes &&
+        sel$timeframe == "h1"
+      bc <- if (wanted) bos_choch_selected() else NULL
+
+      build_session_series(
+        bos_choch = bc,
+        candle_times = cd$date_time,
+        show_london = show_london,
+        show_ny = show_ny
+      )
+    })
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Everything drawn on top of the candles, in one list
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     overlay_series <- shiny::reactive({
-      c(swing_series(), zone_series(), bos_choch_series())
+      c(swing_series(), zone_series(), bos_choch_series(), kill_zone_series())
     })
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

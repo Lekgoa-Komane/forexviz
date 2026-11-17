@@ -103,21 +103,30 @@ build_candle_option <- function(
       nameTextStyle = axis_name_style
     ),
     yAxis = list(
-      scale = TRUE,
-      name = "Price",
-      nameLocation = "middle",
-      nameGap = 40,
-      axisLabel = list(
-        color = cols$text,
-        fontSize = 14,
-        formatter = htmlwidgets::JS(sprintf(
-          "function(v){ return v.toFixed(%d); }",
-          decimals
-        ))
+      list(
+        scale = TRUE,
+        name = "Price",
+        nameLocation = "middle",
+        nameGap = 40,
+        axisLabel = list(
+          color = cols$text,
+          fontSize = 14,
+          formatter = htmlwidgets::JS(sprintf(
+            "function(v){ return v.toFixed(%d); }",
+            decimals
+          ))
+        ),
+        axisLine = axis_line,
+        nameTextStyle = axis_name_style,
+        includeMarkerInExtent = FALSE
       ),
-      axisLine = axis_line,
-      nameTextStyle = axis_name_style,
-      includeMarkerInExtent = FALSE
+      # Hidden second axis, 0 to 1: full-height bands (kill zones) hang on it
+      list(
+        show = FALSE,
+        min = 0,
+        max = 1,
+        axisPointer = list(show = FALSE)
+      )
     ),
     dataZoom = list(
       list(
@@ -243,7 +252,9 @@ chart_colors <- list(
   zone_bear_ob = "rgba(255,165,0,0.15)", # soft orange
   line_bull = "rgba(46,204,113,0.85)", # candle green, a little see-through
   line_bear = "rgba(231,76,60,0.85)", # candle red, a little see-through
-  line_label = "#FFFFFF" # the BOS or CHoCH word on a line
+  line_label = "#FFFFFF", # the BOS or CHoCH word on a line
+  kz_london = "rgba(255,255,0,0.2)", # soft yellow: London kill zone
+  kz_ny = "rgba(0,255,255,0.2)" # soft cyan: NY kill zone
 )
 
 #' Chart layout numbers (pixels), kept in one place
@@ -278,3 +289,34 @@ overlay_master_ids <- c(
   "show_rw_weekly",
   "show_rw_daily"
 )
+
+#' Overlays that exist only on the H1 timeframe
+#' @noRd
+h1_only_overlays <- c("show_kill", "show_rw_weekly", "show_rw_daily")
+
+#' Which overlay master switches may be used for this asset class and timeframe
+#'
+#' @param asset_class Asset class name.
+#' @param timeframe "weekly", "daily", "h4" or "h1".
+#' @return A list with `available` (a named logical vector, one value per
+#'   master switch) and `note` (the text shown under the switches, or "").
+#' @noRd
+overlay_availability <- function(asset_class, timeframe) {
+  has_data <- asset_class %in% overlay_asset_classes
+  on_h1 <- identical(timeframe, "h1")
+
+  available <- stats::setNames(
+    rep(has_data, length(overlay_master_ids)),
+    overlay_master_ids
+  )
+  available[h1_only_overlays] <- available[h1_only_overlays] & on_h1
+
+  note <- if (!has_data) {
+    "No overlay data for this asset class"
+  } else if (!on_h1) {
+    "Kill Zone & Rev Watch: on H1 only"
+  } else {
+    ""
+  }
+  list(available = available, note = note)
+}

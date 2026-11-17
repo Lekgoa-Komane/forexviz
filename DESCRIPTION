@@ -27,7 +27,8 @@ Imports:
     RSQLite,
     shiny,
     shinyjs,
-    shinyWidgets
+    shinyWidgets,
+    stats
 Suggests: 
     testthat (>= 3.0.0)
 Config/roxygen2/version: 8.1.1

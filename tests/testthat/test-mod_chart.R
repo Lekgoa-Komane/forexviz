@@ -278,19 +278,26 @@ test_that("the seven overlay master switches and the note are in the UI", {
   expect_match(html, "t-overlay_note")
 })
 
-test_that("the note appears only for asset classes without overlay data", {
+test_that("the note says why overlays are not available", {
   testServer(mod_chart_server, args = list(config = make_valid_config()), {
-    session$setInputs(asset_class = "Commodity_Futures")
-    expect_match(
-      paste(output$overlay_note$html, collapse = ""),
-      "No overlay data"
-    )
+    note <- function() paste(output$overlay_note$html, collapse = "")
 
-    session$setInputs(asset_class = "Currency_Pairs")
-    expect_false(grepl(
-      "No overlay data",
-      paste(output$overlay_note$html, collapse = "")
-    ))
+    session$setInputs(
+      asset_class = "Commodity_Futures",
+      ticker = "GC.F",
+      timeframe = "weekly"
+    )
+    expect_match(note(), "No overlay data")
+
+    session$setInputs(
+      asset_class = "Currency_Pairs",
+      ticker = "eurusd",
+      timeframe = "weekly"
+    )
+    expect_match(note(), "H1 only")
+
+    session$setInputs(timeframe = "h1")
+    expect_false(grepl("No overlay data|H1 only", note()))
   })
 })
 
@@ -376,8 +383,8 @@ test_that("overlay_series holds the four swing and the four zone series", {
       ticker = "eurusd",
       timeframe = "weekly"
     )
-    expect_named(
-      overlay_series(),
+    expect_setequal(
+      names(overlay_series()),
       c(
         "swing_high",
         "swing_high_broken",
@@ -390,7 +397,9 @@ test_that("overlay_series holds the four swing and the four zone series", {
         "lines_bos_bull",
         "lines_bos_bear",
         "lines_choch_bull",
-        "lines_choch_bear"
+        "lines_choch_bear",
+        "kz_london",
+        "kz_ny"
       )
     )
   })
@@ -509,5 +518,113 @@ test_that("no lines, and no table read, where there is no overlay data", {
       choch_lines = TRUE
     )
     expect_equal(total_marklines(bos_choch_series()), 0)
+  })
+})
+
+# Kill Zones
+fake_module_sessions <- function() {
+  data.table::data.table(
+    date_time = fake_candles()$date_time,
+    london = c(NA, NA, rep("London", 8)),
+    new_york = c(rep(NA, 7), rep("NY", 3)),
+    kill_zone = c(
+      FALSE,
+      FALSE,
+      TRUE,
+      TRUE,
+      TRUE,
+      FALSE,
+      FALSE,
+      TRUE,
+      TRUE,
+      FALSE
+    )
+  )
+}
+
+test_that("session_switches builds a London and a NY switch", {
+  html <- as.character(session_switches(shiny::NS("t")))
+  expect_match(html, "t-kz_london")
+  expect_match(html, "t-kz_ny")
+})
+
+test_that("kill_zone_series follows the London and NY switches on H1", {
+  testthat::local_mocked_bindings(
+    get_dataset = function(...) fake_candles(),
+    .package = "forexdatasets"
+  )
+  testthat::local_mocked_bindings(
+    get_result = function(table, ...) {
+      if (table == "bos_choch") fake_module_sessions() else stop("not needed")
+    },
+    .package = "forexengine"
+  )
+  testServer(mod_chart_server, args = list(config = make_valid_config()), {
+    session$setInputs(
+      asset_class = "Currency_Pairs",
+      ticker = "eurusd",
+      timeframe = "h1"
+    )
+
+    session$setInputs(show_kill = FALSE)
+    expect_length(kill_zone_series(), 2)
+    expect_equal(total_points(kill_zone_series()), 0)
+
+    session$setInputs(show_kill = TRUE, kz_london = TRUE, kz_ny = FALSE)
+    s <- kill_zone_series()
+    expect_length(s$kz_london$data, 3)
+    expect_length(s$kz_ny$data, 0)
+
+    session$setInputs(kz_ny = TRUE)
+    s <- kill_zone_series()
+    expect_length(s$kz_london$data, 3)
+    expect_length(s$kz_ny$data, 2)
+
+    session$setInputs(kz_london = FALSE)
+    expect_equal(total_points(kill_zone_series()), 2)
+  })
+})
+
+test_that("no kill zone bands outside H1, and no table read", {
+  testthat::local_mocked_bindings(
+    get_dataset = function(...) fake_candles(),
+    .package = "forexdatasets"
+  )
+  testthat::local_mocked_bindings(
+    get_result = function(...) stop("table must not be read"),
+    .package = "forexengine"
+  )
+  testServer(mod_chart_server, args = list(config = make_valid_config()), {
+    session$setInputs(
+      asset_class = "Currency_Pairs",
+      ticker = "eurusd",
+      timeframe = "daily",
+      show_kill = TRUE,
+      kz_london = TRUE,
+      kz_ny = TRUE
+    )
+    expect_equal(total_points(kill_zone_series()), 0)
+  })
+})
+
+test_that("no kill zone bands, and no table read, where there is no overlay data", {
+  testthat::local_mocked_bindings(
+    get_dataset = function(...) fake_candles(),
+    .package = "forexdatasets"
+  )
+  testthat::local_mocked_bindings(
+    get_result = function(...) stop("table must not be read"),
+    .package = "forexengine"
+  )
+  testServer(mod_chart_server, args = list(config = make_valid_config()), {
+    session$setInputs(
+      asset_class = "Commodity_Futures",
+      ticker = "GC.F",
+      timeframe = "weekly",
+      show_kill = TRUE,
+      kz_london = TRUE,
+      kz_ny = TRUE
+    )
+    expect_equal(total_points(kill_zone_series()), 0)
   })
 })

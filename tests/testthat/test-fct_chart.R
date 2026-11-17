@@ -120,7 +120,10 @@ test_that("build_candle_option passes the zoom and the decimals through", {
   expect_equal(opt$dataZoom[[1]]$start, 20)
   expect_equal(opt$dataZoom[[1]]$end, 80)
   expect_equal(opt$dataZoom[[2]]$start, 20)
-  expect_match(as.character(opt$yAxis$axisLabel$formatter), "toFixed\\(3\\)")
+  expect_match(
+    as.character(opt$yAxis[[1]]$axisLabel$formatter),
+    "toFixed\\(3\\)"
+  )
 })
 
 # --- horizontal data for point ---
@@ -218,7 +221,45 @@ test_that("extra series are added after the candles", {
   )
 })
 
-# test_that("shaded zones never stretch the price axis", {
-#   opt <- build_candle_option(one_candle(), "T", 5L, full_zoom)
-#   expect_false(opt$yAxis$includeMarkerInExtent)
-# })
+test_that("shaded zones never stretch the price axis", {
+  opt <- build_candle_option(one_candle(), "T", 5L, full_zoom)
+  expect_false(opt$yAxis[[1]]$includeMarkerInExtent)
+})
+
+# Kill zones
+test_that("the chart has a hidden 0-to-1 axis for full-height bands", {
+  opt <- build_candle_option(one_candle(), "T", 5L, full_zoom)
+  expect_length(opt$yAxis, 2)
+  expect_false(opt$yAxis[[2]]$show)
+  expect_equal(opt$yAxis[[2]]$min, 0)
+  expect_equal(opt$yAxis[[2]]$max, 1)
+  expect_false(opt$yAxis[[2]]$axisPointer$show)
+})
+
+# Overlay switches
+test_that("overlay_availability follows the asset class and the timeframe", {
+  h1 <- overlay_availability("Currency_Pairs", "h1")
+  expect_named(h1$available, overlay_master_ids)
+  expect_true(all(h1$available))
+  expect_equal(h1$note, "")
+
+  daily <- overlay_availability("Currency_Pairs", "daily")
+  expect_true(daily$available[["show_swing"]])
+  expect_true(daily$available[["show_fvg"]])
+  expect_true(daily$available[["show_bos_choch"]])
+  expect_false(daily$available[["show_kill"]])
+  expect_false(daily$available[["show_rw_weekly"]])
+  expect_false(daily$available[["show_rw_daily"]])
+  expect_match(daily$note, "H1 only")
+
+  yields <- overlay_availability("Yields", "h1")
+  expect_false(any(yields$available))
+  expect_match(yields$note, "No overlay data")
+
+  # the asset class message wins over the H1 message
+  expect_match(overlay_availability("Yields", "daily")$note, "No overlay data")
+  expect_equal(
+    unname(overlay_availability("Metals", "h1")$available[["show_kill"]]),
+    TRUE
+  )
+})
