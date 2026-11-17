@@ -158,7 +158,20 @@ mod_chart_ui <- function(id) {
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Chart output
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    fluidRow(column(12, echarts4rOutput(ns("chart"), height = "600px")))
+    # fluidRow(column(12, echarts4rOutput(ns("chart"), height = "600px")))
+    fluidRow(
+      column(
+        12,
+        bslib::navset_tab(
+          id = ns("chart_tabs"),
+          bslib::nav_panel(
+            "Chart",
+            echarts4rOutput(ns("chart"), height = "600px")
+          ),
+          bslib::nav_panel("Data", DT::DTOutput(ns("chart_table")))
+        )
+      )
+    )
   )
 }
 
@@ -657,13 +670,41 @@ mod_chart_server <- function(id, config) {
           )
           echarts4r::e_charts() |>
             echarts4r::e_list(opts) |>
-            htmlwidgets::onRender(label_toggle_js())
+            htmlwidgets::onRender(label_toggle_js()) |>
+            echarts4r::e_toolbox_feature(feature = "restore")
         },
         error = function(e) {
           logger::log_error("Chart render failed: {conditionMessage(e)}")
           showNotification("Error rendering chart", type = "error")
           NULL
         }
+      )
+    })
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Data view: the same candles the chart is built from
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    output$chart_table <- DT::renderDT({
+      cd <- chart_data_full()
+      if (nrow(cd) == 0L) {
+        return(DT::datatable(data.frame(Message = "No data for selection")))
+      }
+
+      # Only the columns a user would want to see
+      cols <- intersect(
+        c("date_time", "open", "high", "low", "close"),
+        names(cd)
+      )
+
+      DT::datatable(
+        cd[, ..cols],
+        rownames = FALSE,
+        options = list(
+          pageLength = 8,
+          lengthMenu = list(c(8, 15, 25, -1), c("8", "15", "25", "All")),
+          scrollX = TRUE,
+          order = list(list(0, "asc"))
+        )
       )
     })
   })
