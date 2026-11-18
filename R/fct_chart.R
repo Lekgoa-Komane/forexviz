@@ -254,7 +254,9 @@ chart_colors <- list(
   line_bear = "rgba(231,76,60,0.85)", # candle red, a little see-through
   line_label = "#FFFFFF", # the BOS or CHoCH word on a line
   kz_london = "rgba(255,255,0,0.2)", # soft yellow: London kill zone
-  kz_ny = "rgba(0,255,255,0.2)" # soft cyan: NY kill zone
+  kz_ny = "rgba(0,255,255,0.2)", # soft cyan: NY kill zone
+  rw_bull = "#00CC00", # Reversal Watch markers, bullish
+  rw_bear = "#FF3333" # Reversal Watch markers, bearish
 )
 
 #' Chart layout numbers (pixels), kept in one place
@@ -271,7 +273,10 @@ chart_layout <- list(
   # price labels show only at or below this many visible candles
   label_max_candles = 400,
   line_width = 1.5, # thickness of BOS and CHoCH lines
-  line_label_size = 10 # size of the BOS or CHoCH word
+  line_label_size = 10, # size of the BOS or CHoCH word
+  rw_swing_size = 20, # Reversal Watch swing arrow
+  rw_aggr_size = 12, # aggressive close circle
+  rw_choch_size = 14 # CHoCH diamond
 )
 
 #' Asset classes that have overlay data (registry, BOS/CHoCH, reversal watch)

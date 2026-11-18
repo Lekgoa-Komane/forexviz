@@ -67,6 +67,28 @@ session_switches <- function(ns) {
   )
 }
 
+#' The Zone and Naked child switches of a Reversal Watch master (both on)
+#'
+#' @param ns The module's namespace function.
+#' @param prefix "rw_weekly" or "rw_daily".
+#' @noRd
+zone_naked_switches <- function(ns, prefix) {
+  tagList(
+    switchInput(
+      ns(paste0(prefix, "_zone")),
+      "Zone",
+      value = TRUE,
+      inline = TRUE
+    ),
+    switchInput(
+      ns(paste0(prefix, "_naked")),
+      "Naked",
+      value = TRUE,
+      inline = TRUE
+    )
+  )
+}
+
 #' price_chart UI Function
 #'
 #' @description A shiny Module.
@@ -463,6 +485,34 @@ mod_chart_server <- function(id, config) {
     })
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Reversal Watch tables, one per source timeframe
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    read_reversal_watch <- function(source_tf) {
+      sel <- selection() # can "wait", so it stays outside the tryCatch
+      tryCatch(
+        forexengine::get_result(
+          table = "reversal_watch",
+          timeframe = source_tf,
+          ticker = sel$ticker,
+          asset_class = sel$asset_class,
+          config = config
+        ),
+        error = function(e) {
+          logger::log_error(
+            "Failed to load reversal_watch ({source_tf}): {conditionMessage(e)}"
+          )
+          shiny::showNotification(
+            "Error loading Reversal Watch data",
+            type = "error"
+          )
+          data.table::data.table()
+        }
+      )
+    }
+    rw_weekly_data <- shiny::reactive(read_reversal_watch("weekly"))
+    rw_daily_data <- shiny::reactive(read_reversal_watch("daily"))
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Swing point markers (NULL when swing points are off)
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     swing_series <- shiny::reactive({
@@ -496,110 +546,6 @@ mod_chart_server <- function(id, config) {
       },
       ignoreInit = TRUE
     )
-
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # Child switches for swing points, fvg, ob, bos/choch, kill_zones
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    output$swing_child_ui <- shiny::renderUI({
-      shiny::req(isTRUE(input$show_swing))
-      tagList(
-        shinyWidgets::switchInput(
-          ns("swing_high"),
-          "High",
-          value = TRUE,
-          inline = TRUE
-        ),
-        shinyWidgets::switchInput(
-          ns("swing_low"),
-          "Low",
-          value = TRUE,
-          inline = TRUE
-        )
-      )
-    })
-
-    output$fvg_child_ui <- shiny::renderUI({
-      shiny::req(isTRUE(input$show_fvg))
-      bull_bear_switches(ns, "fvg")
-    })
-
-    output$ob_child_ui <- shiny::renderUI({
-      shiny::req(isTRUE(input$show_ob))
-      bull_bear_switches(ns, "ob")
-    })
-
-    output$bos_choch_child_ui <- shiny::renderUI({
-      shiny::req(isTRUE(input$show_bos_choch))
-      bos_choch_switches(ns)
-    })
-
-    output$kill_child_ui <- shiny::renderUI({
-      shiny::req(isTRUE(input$show_kill))
-      session_switches(ns)
-    })
-
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # Grey out the overlay switches where there is no overlay data
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # shiny::observeEvent(input$asset_class, {
-    #   available <- input$asset_class %in% overlay_asset_classes
-    #   for (id in overlay_master_ids) {
-    #     if (!available) {
-    #       shinyWidgets::updateSwitchInput(session, id, value = FALSE)
-    #     }
-    #     shinyWidgets::updateSwitchInput(session, id, disabled = !available)
-    #   }
-    # })
-    #
-    # output$overlay_note <- shiny::renderUI({
-    #   shiny::req(input$asset_class)
-    #   if (!input$asset_class %in% overlay_asset_classes) {
-    #     "No overlay data for this asset class"
-    #   }
-    # })
-
-    # ---- Which overlay switches may be used here ---------------------------
-    availability <- shiny::reactive({
-      sel <- selection()
-      overlay_availability(sel$asset_class, sel$timeframe)
-    })
-
-    shiny::observeEvent(availability(), {
-      available <- availability()$available
-      for (id in overlay_master_ids) {
-        if (!available[[id]]) {
-          shinyWidgets::updateSwitchInput(session, id, value = FALSE)
-        }
-        shinyWidgets::updateSwitchInput(
-          session,
-          id,
-          disabled = !available[[id]]
-        )
-      }
-    })
-
-    output$overlay_note <- shiny::renderUI({
-      availability()$note
-    })
-
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # Exclusive pairs: switching one on switches the other off
-    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    make_exclusive <- function(on, off) {
-      shiny::observeEvent(
-        input[[on]],
-        {
-          if (isTRUE(input[[on]])) {
-            shinyWidgets::updateSwitchInput(session, off, value = FALSE)
-          }
-        },
-        ignoreInit = TRUE
-      )
-    }
-    make_exclusive("show_fvg", "show_ob")
-    make_exclusive("show_ob", "show_fvg")
-    make_exclusive("bos_lines", "choch_lines")
-    make_exclusive("choch_lines", "bos_lines")
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # FVG and OB zone rectangles (always four series, empty when off)
@@ -697,10 +643,172 @@ mod_chart_server <- function(id, config) {
     })
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Reversal Watch markers (always twelve series, empty when off)
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    reversal_watch_series <- shiny::reactive({
+      sel <- selection()
+      cd <- chart_data_full()
+      shiny::req(nrow(cd) > 0L)
+
+      weekly_on <- isTRUE(input$show_rw_weekly)
+      daily_on <- isTRUE(input$show_rw_daily)
+      w_zone <- weekly_on && isTRUE(input$rw_weekly_zone)
+      w_naked <- weekly_on && isTRUE(input$rw_weekly_naked)
+      d_zone <- daily_on && isTRUE(input$rw_daily_zone)
+      d_naked <- daily_on && isTRUE(input$rw_daily_naked)
+
+      # Read the tables only when needed, only where they exist, only on H1
+      allowed <- sel$asset_class %in%
+        overlay_asset_classes &&
+        sel$timeframe == "h1"
+      weekly <- if (allowed && (w_zone || w_naked)) rw_weekly_data() else NULL
+      daily <- if (allowed && (d_zone || d_naked)) rw_daily_data() else NULL
+
+      c(
+        build_reversal_series(
+          weekly,
+          cd$date_time,
+          "weekly",
+          show_zone = w_zone,
+          show_naked = w_naked
+        ),
+        build_reversal_series(
+          daily,
+          cd$date_time,
+          "daily",
+          show_zone = d_zone,
+          show_naked = d_naked
+        )
+      )
+    })
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Child switches for swing points, fvg, ob, bos/choch, kill_zones
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    output$swing_child_ui <- shiny::renderUI({
+      shiny::req(isTRUE(input$show_swing))
+      tagList(
+        shinyWidgets::switchInput(
+          ns("swing_high"),
+          "High",
+          value = TRUE,
+          inline = TRUE
+        ),
+        shinyWidgets::switchInput(
+          ns("swing_low"),
+          "Low",
+          value = TRUE,
+          inline = TRUE
+        )
+      )
+    })
+
+    output$fvg_child_ui <- shiny::renderUI({
+      shiny::req(isTRUE(input$show_fvg))
+      bull_bear_switches(ns, "fvg")
+    })
+
+    output$ob_child_ui <- shiny::renderUI({
+      shiny::req(isTRUE(input$show_ob))
+      bull_bear_switches(ns, "ob")
+    })
+
+    output$bos_choch_child_ui <- shiny::renderUI({
+      shiny::req(isTRUE(input$show_bos_choch))
+      bos_choch_switches(ns)
+    })
+
+    output$kill_child_ui <- shiny::renderUI({
+      shiny::req(isTRUE(input$show_kill))
+      session_switches(ns)
+    })
+
+    output$rw_weekly_child_ui <- shiny::renderUI({
+      shiny::req(isTRUE(input$show_rw_weekly))
+      zone_naked_switches(ns, "rw_weekly")
+    })
+
+    output$rw_daily_child_ui <- shiny::renderUI({
+      shiny::req(isTRUE(input$show_rw_daily))
+      zone_naked_switches(ns, "rw_daily")
+    })
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Grey out the overlay switches where there is no overlay data
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # shiny::observeEvent(input$asset_class, {
+    #   available <- input$asset_class %in% overlay_asset_classes
+    #   for (id in overlay_master_ids) {
+    #     if (!available) {
+    #       shinyWidgets::updateSwitchInput(session, id, value = FALSE)
+    #     }
+    #     shinyWidgets::updateSwitchInput(session, id, disabled = !available)
+    #   }
+    # })
+    #
+    # output$overlay_note <- shiny::renderUI({
+    #   shiny::req(input$asset_class)
+    #   if (!input$asset_class %in% overlay_asset_classes) {
+    #     "No overlay data for this asset class"
+    #   }
+    # })
+
+    # ---- Which overlay switches may be used here ---------------------------
+    availability <- shiny::reactive({
+      sel <- selection()
+      overlay_availability(sel$asset_class, sel$timeframe)
+    })
+
+    shiny::observeEvent(availability(), {
+      available <- availability()$available
+      for (id in overlay_master_ids) {
+        if (!available[[id]]) {
+          shinyWidgets::updateSwitchInput(session, id, value = FALSE)
+        }
+        shinyWidgets::updateSwitchInput(
+          session,
+          id,
+          disabled = !available[[id]]
+        )
+      }
+    })
+
+    output$overlay_note <- shiny::renderUI({
+      availability()$note
+    })
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # Exclusive pairs: switching one on switches the other off
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    make_exclusive <- function(on, off) {
+      shiny::observeEvent(
+        input[[on]],
+        {
+          if (isTRUE(input[[on]])) {
+            shinyWidgets::updateSwitchInput(session, off, value = FALSE)
+          }
+        },
+        ignoreInit = TRUE
+      )
+    }
+    make_exclusive("show_fvg", "show_ob")
+    make_exclusive("show_ob", "show_fvg")
+    make_exclusive("bos_lines", "choch_lines")
+    make_exclusive("choch_lines", "bos_lines")
+    make_exclusive("show_rw_weekly", "show_rw_daily")
+    make_exclusive("show_rw_daily", "show_rw_weekly")
+
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Everything drawn on top of the candles, in one list
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     overlay_series <- shiny::reactive({
-      c(swing_series(), zone_series(), bos_choch_series(), kill_zone_series())
+      c(
+        swing_series(),
+        zone_series(),
+        bos_choch_series(),
+        kill_zone_series(),
+        reversal_watch_series()
+      )
     })
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

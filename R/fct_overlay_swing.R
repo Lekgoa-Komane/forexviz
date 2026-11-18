@@ -142,7 +142,7 @@ function(el, x) {
     last = show;
     var changes = [];
     (opt.series || []).forEach(function(s) {
-      if (s.type === 'scatter') {
+      if (s.type === 'scatter' && String(s.name).indexOf('swing_') === 0) {
         changes.push({ name: s.name, label: { show: show } });
       } else if (s.type === 'line' && s.markLine) {
         changes.push({ name: s.name, markLine: { label: { show: show } } });

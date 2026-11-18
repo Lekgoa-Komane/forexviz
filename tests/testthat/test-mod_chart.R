@@ -383,6 +383,13 @@ test_that("overlay_series holds the four swing and the four zone series", {
       ticker = "eurusd",
       timeframe = "weekly"
     )
+    rw_names <- paste0(
+      "rw_",
+      rep(c("weekly", "daily"), each = 6),
+      "_",
+      rep(c("swing", "aggr", "choch"), each = 2, times = 2),
+      c("_bull", "_bear")
+    )
     expect_setequal(
       names(overlay_series()),
       c(
@@ -399,7 +406,8 @@ test_that("overlay_series holds the four swing and the four zone series", {
         "lines_choch_bull",
         "lines_choch_bear",
         "kz_london",
-        "kz_ny"
+        "kz_ny",
+        rw_names
       )
     )
   })
@@ -626,5 +634,134 @@ test_that("no kill zone bands, and no table read, where there is no overlay data
       kz_ny = TRUE
     )
     expect_equal(total_points(kill_zone_series()), 0)
+  })
+})
+
+# reversal watch
+fake_module_rw <- function(rows) {
+  times <- fake_candles()$date_time
+  data.table::data.table(
+    swing_type = rows$swing_type,
+    setup_type = rows$setup_type,
+    swing_time = times[rows$at],
+    swing_price = c(1.0, 1.3)[seq_along(rows$at)],
+    aggressive_close_time = times[rows$at + 1],
+    aggressive_close_price = c(1.02, 1.27)[seq_along(rows$at)],
+    h1_choch_time = times[rows$at + 2],
+    h1_choch_price = c(1.05, 1.22)[seq_along(rows$at)]
+  )
+}
+
+fake_rw_weekly <- function() {
+  fake_module_rw(list(
+    swing_type = c("low", "high"),
+    setup_type = c("zone_swing", "naked_swing"),
+    at = c(1, 4)
+  ))
+}
+
+fake_rw_daily <- function() {
+  fake_module_rw(list(swing_type = "low", setup_type = "zone_swing", at = 7))
+}
+
+fake_get_result_rw <- function(table, timeframe, ...) {
+  if (table != "reversal_watch") {
+    stop("not needed")
+  }
+  if (timeframe == "weekly") fake_rw_weekly() else fake_rw_daily()
+}
+
+test_that("zone_naked_switches builds a Zone and a Naked switch", {
+  html <- as.character(zone_naked_switches(shiny::NS("t"), "rw_weekly"))
+  expect_match(html, "t-rw_weekly_zone")
+  expect_match(html, "t-rw_weekly_naked")
+})
+
+test_that("reversal_watch_series follows the RW switches on H1", {
+  testthat::local_mocked_bindings(
+    get_dataset = function(...) fake_candles(),
+    .package = "forexdatasets"
+  )
+  testthat::local_mocked_bindings(
+    get_result = fake_get_result_rw,
+    .package = "forexengine"
+  )
+  testServer(mod_chart_server, args = list(config = make_valid_config()), {
+    session$setInputs(
+      asset_class = "Currency_Pairs",
+      ticker = "eurusd",
+      timeframe = "h1"
+    )
+
+    session$setInputs(show_rw_weekly = FALSE, show_rw_daily = FALSE)
+    expect_length(reversal_watch_series(), 12)
+    expect_equal(total_points(reversal_watch_series()), 0)
+
+    session$setInputs(
+      show_rw_weekly = TRUE,
+      rw_weekly_zone = TRUE,
+      rw_weekly_naked = TRUE
+    )
+    s <- reversal_watch_series()
+    expect_equal(total_points(s), 6) # 2 setups x 3 markers
+    expect_length(s$rw_weekly_swing_bull$data, 1)
+    expect_length(s$rw_weekly_swing_bear$data, 1)
+
+    session$setInputs(rw_weekly_naked = FALSE)
+    expect_equal(total_points(reversal_watch_series()), 3) # the zone setup
+
+    session$setInputs(
+      show_rw_weekly = FALSE,
+      show_rw_daily = TRUE,
+      rw_daily_zone = TRUE,
+      rw_daily_naked = TRUE
+    )
+    s <- reversal_watch_series()
+    expect_equal(total_points(s), 3) # 1 daily setup x 3 markers
+    expect_length(s$rw_daily_swing_bull$data, 1)
+  })
+})
+
+test_that("no Reversal Watch markers outside H1, and no table read", {
+  testthat::local_mocked_bindings(
+    get_dataset = function(...) fake_candles(),
+    .package = "forexdatasets"
+  )
+  testthat::local_mocked_bindings(
+    get_result = function(...) stop("table must not be read"),
+    .package = "forexengine"
+  )
+  testServer(mod_chart_server, args = list(config = make_valid_config()), {
+    session$setInputs(
+      asset_class = "Currency_Pairs",
+      ticker = "eurusd",
+      timeframe = "daily",
+      show_rw_weekly = TRUE,
+      rw_weekly_zone = TRUE,
+      rw_weekly_naked = TRUE
+    )
+    expect_equal(total_points(reversal_watch_series()), 0)
+  })
+})
+
+test_that("no Reversal Watch markers where there is no overlay data", {
+  testthat::local_mocked_bindings(
+    get_dataset = function(...) fake_candles(),
+    .package = "forexdatasets"
+  )
+  testthat::local_mocked_bindings(
+    get_result = function(...) stop("table must not be read"),
+    .package = "forexengine"
+  )
+  testServer(mod_chart_server, args = list(config = make_valid_config()), {
+    session$setInputs(
+      asset_class = "Commodity_Futures",
+      ticker = "GC.F",
+      timeframe = "daily",
+      show_rw_daily = TRUE,
+      rw_daily_zone = TRUE,
+      rw_daily_naked = TRUE
+    )
+    expect_equal(total_points(reversal_watch_series()), 0)
   })
 })

@@ -121,6 +121,7 @@ test_that("label_toggle_js carries the limit and no leftover placeholder", {
   expect_false(grepl("__", js, fixed = TRUE))
   expect_match(label_toggle_js(), as.character(chart_layout$label_max_candles))
   expect_match(js, "markLine", fixed = TRUE)
+  expect_match(js, "indexOf('swing_')", fixed = TRUE)
 })
 
 test_that("only Currency_Pairs and Metals have overlay data", {
