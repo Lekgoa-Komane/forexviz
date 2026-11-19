@@ -1,42 +1,3 @@
-# testServer(
-#   mod_price_chart_server,
-#   # Add here your module params
-#   args = list(),
-#   {
-#     ns <- session$ns
-#     expect_true(
-#       inherits(ns, "function")
-#     )
-#     expect_true(
-#       grepl(id, ns(""))
-#     )
-#     expect_true(
-#       grepl("test", ns("test"))
-#     )
-#     # Here are some examples of tests you can
-#     # run on your module
-#     # - Testing the setting of inputs
-#     # session$setInputs(x = 1)
-#     # expect_true(input$x == 1)
-#     # - If ever your input updates a reactiveValues
-#     # - Note that this reactiveValues must be passed
-#     # - to the testServer function via args = list()
-#     # expect_true(r$x == 1)
-#     # - Testing output
-#     # expect_true(inherits(output$tbl$html, "html"))
-#   }
-# )
-#
-# test_that("module ui works", {
-#   ui <- mod_price_chart_ui(id = "test")
-#   golem::expect_shinytaglist(ui)
-#   # Check that formals have not been removed
-#   fmls <- formals(mod_price_chart_ui)
-#   for (i in c("id")) {
-#     expect_true(i %in% names(fmls))
-#   }
-# })
-
 # Smoke test: the module starts with a valid config and namespaces work
 testServer(
   mod_chart_server,
@@ -530,6 +491,16 @@ test_that("no lines, and no table read, where there is no overlay data", {
 })
 
 # Kill Zones
+config_with_indices <- function() {
+  cfg <- make_valid_config()
+  cfg$asset_classes$Currency_Indices <- list(
+    frequencies = c("daily", "hourly"),
+
+    tickers = "usd_i"
+  )
+  cfg
+}
+
 fake_module_sessions <- function() {
   data.table::data.table(
     date_time = fake_candles()$date_time,
@@ -624,11 +595,11 @@ test_that("no kill zone bands, and no table read, where there is no overlay data
     get_result = function(...) stop("table must not be read"),
     .package = "forexengine"
   )
-  testServer(mod_chart_server, args = list(config = make_valid_config()), {
+  testServer(mod_chart_server, args = list(config = config_with_indices()), {
     session$setInputs(
-      asset_class = "Commodity_Futures",
-      ticker = "GC.F",
-      timeframe = "weekly",
+      asset_class = "Currency_Indices",
+      ticker = "usd_i",
+      timeframe = "h1",
       show_kill = TRUE,
       kz_london = TRUE,
       kz_ny = TRUE
@@ -638,6 +609,7 @@ test_that("no kill zone bands, and no table read, where there is no overlay data
 })
 
 # reversal watch
+
 fake_module_rw <- function(rows) {
   times <- fake_candles()$date_time
   data.table::data.table(
@@ -753,11 +725,11 @@ test_that("no Reversal Watch markers where there is no overlay data", {
     get_result = function(...) stop("table must not be read"),
     .package = "forexengine"
   )
-  testServer(mod_chart_server, args = list(config = make_valid_config()), {
+  testServer(mod_chart_server, args = list(config = config_with_indices()), {
     session$setInputs(
-      asset_class = "Commodity_Futures",
-      ticker = "GC.F",
-      timeframe = "daily",
+      asset_class = "Currency_Indices",
+      ticker = "usd_i",
+      timeframe = "h1",
       show_rw_daily = TRUE,
       rw_daily_zone = TRUE,
       rw_daily_naked = TRUE

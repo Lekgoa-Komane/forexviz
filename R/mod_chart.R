@@ -1,6 +1,6 @@
 #' Width (pixels) of the label part of every overlay switch.
 #' @noRd
-overlay_label_width <- 60
+overlay_label_width <- 50
 
 #' One overlay switch, with its sub-options underneath
 #'
@@ -187,7 +187,7 @@ mod_chart_ui <- function(id) {
     br(),
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # Chart output
+    # Chart & Data output
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     fluidRow(
       column(
@@ -736,24 +736,6 @@ mod_chart_server <- function(id, config) {
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Grey out the overlay switches where there is no overlay data
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # shiny::observeEvent(input$asset_class, {
-    #   available <- input$asset_class %in% overlay_asset_classes
-    #   for (id in overlay_master_ids) {
-    #     if (!available) {
-    #       shinyWidgets::updateSwitchInput(session, id, value = FALSE)
-    #     }
-    #     shinyWidgets::updateSwitchInput(session, id, disabled = !available)
-    #   }
-    # })
-    #
-    # output$overlay_note <- shiny::renderUI({
-    #   shiny::req(input$asset_class)
-    #   if (!input$asset_class %in% overlay_asset_classes) {
-    #     "No overlay data for this asset class"
-    #   }
-    # })
-
-    # ---- Which overlay switches may be used here ---------------------------
     availability <- shiny::reactive({
       sel <- selection()
       overlay_availability(sel$asset_class, sel$timeframe)
