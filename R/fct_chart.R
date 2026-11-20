@@ -248,7 +248,7 @@ chart_colors <- list(
   swing_label = "#FFFFFF", # white: the price next to a swing
   zone_bull_fvg = "rgba(0,255,0,0.2)", # soft green
   zone_bear_fvg = "rgba(255,0,0,0.2)", # soft red
-  zone_bull_ob = "rgba(0,255,255,0.15)", # soft blue
+  zone_bull_ob = "rgba(200,125,255,0.2)", # soft purple
   zone_bear_ob = "rgba(255,165,0,0.15)", # soft orange
   line_bull = "rgba(46,204,113,0.85)", # candle green, a little see-through
   line_bear = "rgba(231,76,60,0.85)", # candle red, a little see-through
