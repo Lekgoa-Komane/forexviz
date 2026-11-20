@@ -2,34 +2,7 @@
 
 export(run_app)
 import(shiny)
-importFrom(DBI,
-  dbConnect,
-  dbDisconnect,
-  dbGetQuery,
-  dbIsValid
-)
-importFrom(RSQLite,SQLite)
-importFrom(data.table,
-  as.data.table,
-  fifelse,
-  rbindlist,
-  rleid,
-  setDT,
-  setorderv
-)
 importFrom(echarts4r,
-  e_candle,
-  e_charts,
-  e_datazoom,
-  e_grid,
-  e_legend,
-  e_mark_area,
-  e_mark_line,
-  e_scatter,
-  e_title,
-  e_tooltip,
-  e_x_axis,
-  e_y_axis,
   echarts4rOutput,
   renderEcharts4r
 )
@@ -40,8 +13,6 @@ importFrom(golem,
   favicon,
   with_golem_options
 )
-importFrom(htmlwidgets,JS)
-importFrom(lubridate,weeks)
 importFrom(shiny,
   NS,
   br,
@@ -50,9 +21,12 @@ importFrom(shiny,
   div,
   fluidRow,
   moduleServer,
+  observe,
   observeEvent,
   reactive,
+  reactiveValues,
   renderUI,
+  req,
   selectInput,
   shinyApp,
   showNotification,
@@ -61,12 +35,4 @@ importFrom(shiny,
   updateDateRangeInput,
   updateSelectInput
 )
-importFrom(shinyWidgets,
-  switchInput,
-  updateSwitchInput
-)
-importFrom(shinyjs,
-  hide,
-  show,
-  toggle
-)
+importFrom(shinyWidgets,switchInput)

@@ -6,6 +6,7 @@ $(document).ready(function () {
     if (!el) { return; }
     var chart = echarts.getInstanceByDom(el);
     if (!chart) { return; }
+    el.forexvizOverlay = message.series;   // remember the latest overlays
     chart.setOption({ series: message.series });
     if (typeof el.forexvizUpdateLabels === 'function') {
       el.forexvizUpdateLabels(true);

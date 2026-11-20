@@ -319,7 +319,7 @@ overlay_availability <- function(asset_class, timeframe) {
   note <- if (!has_data) {
     "No overlay data for this asset class"
   } else if (!on_h1) {
-    "Kill Zone & Rev Watch: on H1 only"
+    "Kill Zone and Reversal Watch are available on H1 only"
   } else {
     ""
   }

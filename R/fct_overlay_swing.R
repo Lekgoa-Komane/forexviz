@@ -130,6 +130,7 @@ label_toggle_js <- function(limit = chart_layout$label_max_candles) {
 function(el, x) {
   var chart = echarts.getInstanceByDom(el);
   if (!chart) { return; }
+  el.forexvizOverlay = null;
   var limit = __LIMIT__;
   var last = null;
   function update() {
@@ -150,11 +151,16 @@ function(el, x) {
     });
     if (changes.length) { chart.setOption({ series: changes }); }
   }
-    el.forexvizUpdateLabels = function(force) {
+  el.forexvizUpdateLabels = function(force) {
     if (force) { last = null; }
     update();
   };
   chart.on('datazoom', update);
+  chart.on('restore', function() {
+    if (el.forexvizOverlay) { chart.setOption({ series: el.forexvizOverlay }); }
+    last = null;
+    update();
+  });
   update();
 }
 )---"

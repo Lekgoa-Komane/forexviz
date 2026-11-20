@@ -147,3 +147,10 @@ test_that("the handler file exists and the label script can be refreshed", {
   )
   expect_match(label_toggle_js(), "forexvizUpdateLabels", fixed = TRUE)
 })
+
+# restore button
+test_that("the label script survives the restore button", {
+  js <- label_toggle_js()
+  expect_match(js, "'restore'", fixed = TRUE)
+  expect_match(js, "forexvizOverlay", fixed = TRUE)
+})

@@ -737,3 +737,10 @@ test_that("no Reversal Watch markers where there is no overlay data", {
     expect_equal(total_points(reversal_watch_series()), 0)
   })
 })
+
+# overlay note
+test_that("the overlay note exists exactly once", {
+  html <- as.character(mod_chart_ui("t"))
+  hits <- gregexpr('id="t-overlay_note"', html, fixed = TRUE)[[1]]
+  expect_equal(sum(hits > 0), 1)
+})

@@ -21,8 +21,7 @@ overlay_switch <- function(ns, id, label, child_ui_id, wrapper_id = NULL) {
       width = "100%",
       labelWidth = overlay_label_width
     ),
-    div(class = "overlay-children", uiOutput(ns(child_ui_id))),
-    div(class = "overlay-note", uiOutput(ns("overlay_note")))
+    div(class = "overlay-children", uiOutput(ns(child_ui_id)))
   )
 }
 
@@ -184,6 +183,7 @@ mod_chart_ui <- function(id) {
       overlay_switch(ns, "show_rw_weekly", "RW Weekly", "rw_weekly_child_ui"),
       overlay_switch(ns, "show_rw_daily", "RW Daily", "rw_daily_child_ui")
     ),
+    div(class = "overlay-note", uiOutput(ns("overlay_note"))),
     br(),
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -206,30 +206,20 @@ mod_chart_ui <- function(id) {
 }
 
 
-#' price_chart Server Functions
-#' Chart Module Server
+#' chart Server Function
 #'
-#' Loads candles for the selected ticker/timeframe and renders an
-#' interactive candlestick chart. Iteration 2: candles only — overlays
-#' are added later.
+#' Loads the candles for the selected ticker and timeframe, draws the
+#' interactive candlestick chart and keeps the overlays (swing points, FVG, OB,
+#' BOS/CHoCH, Kill Zone, Reversal Watch) in step with their switches.
 #'
 #' @param id Character string. Module namespace ID.
 #' @param config A validated configuration list.
 #'
 #' @return None. Called for side effects.
-#' @importFrom shiny moduleServer observeEvent reactive renderUI
-#' @importFrom shiny showNotification updateSelectInput updateDateRangeInput
-#' @importFrom shinyWidgets updateSwitchInput
-#' @importFrom data.table as.data.table setDT setorderv rleid fifelse rbindlist
-#' @importFrom DBI dbConnect dbGetQuery dbDisconnect dbIsValid
-#' @importFrom RSQLite SQLite
-#' @importFrom echarts4r e_charts e_candle e_scatter e_mark_area e_mark_line
-#' @importFrom echarts4r e_title e_tooltip e_x_axis e_y_axis e_datazoom
-#' @importFrom echarts4r renderEcharts4r e_grid e_legend
-#' @importFrom htmlwidgets JS
-#' @importFrom lubridate weeks
-#' @importFrom shinyjs toggle show hide
-#'
+#' @importFrom shiny moduleServer reactive reactiveValues observe observeEvent
+#' @importFrom shiny req showNotification updateSelectInput updateDateRangeInput
+#' @importFrom shiny renderUI
+#' @importFrom echarts4r renderEcharts4r
 #' @noRd
 mod_chart_server <- function(id, config) {
   moduleServer(id, function(input, output, session) {
@@ -417,7 +407,7 @@ mod_chart_server <- function(id, config) {
         zr <- zoom_pct(cd$date_time, rng[1], rng[2])
 
         # NEW: log line, to see if this observer runs
-        logger::log_info(
+        logger::log_debug(
           "date range zoom: candles {zr$start_idx} to {zr$end_idx}"
         )
 
@@ -513,7 +503,7 @@ mod_chart_server <- function(id, config) {
     rw_daily_data <- shiny::reactive(read_reversal_watch("daily"))
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # Swing point markers (NULL when swing points are off)
+    # Swing point markers
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     swing_series <- shiny::reactive({
       show_high <- isTRUE(input$show_swing) && isTRUE(input$swing_high)
@@ -535,17 +525,6 @@ mod_chart_server <- function(id, config) {
         show_low = show_low
       )
     })
-
-    shiny::observeEvent(
-      overlay_series(),
-      {
-        session$sendCustomMessage(
-          "forexviz_set_overlay",
-          list(id = ns("chart"), series = unname(overlay_series()))
-        )
-      },
-      ignoreInit = TRUE
-    )
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # FVG and OB zone rectangles (always four series, empty when off)
@@ -793,6 +772,17 @@ mod_chart_server <- function(id, config) {
       )
     })
 
+    shiny::observeEvent(
+      overlay_series(),
+      {
+        session$sendCustomMessage(
+          "forexviz_set_overlay",
+          list(id = ns("chart"), series = unname(overlay_series()))
+        )
+      },
+      ignoreInit = TRUE
+    )
+
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     # Render Chart
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -823,8 +813,8 @@ mod_chart_server <- function(id, config) {
           )
           echarts4r::e_charts() |>
             echarts4r::e_list(opts) |>
-            htmlwidgets::onRender(label_toggle_js()) |>
-            echarts4r::e_toolbox_feature(feature = "restore")
+            echarts4r::e_toolbox_feature(feature = "restore") |>
+            htmlwidgets::onRender(label_toggle_js())
         },
         error = function(e) {
           logger::log_error("Chart render failed: {conditionMessage(e)}")
